@@ -1709,7 +1709,12 @@ async function mfixDirectUsbPrint(receiptHtml){
       binary += String.fromCharCode.apply(null, raster.subarray(i,Math.min(raster.length,i+CH)));
     }
     const b64=btoa(binary);
-    window.AndroidPrinter.printRaster(b64,bytesPerLine,height);
+    const profile=(STATE.settings.printers||[]).find(p=>p.id===STATE.settings.defaultPrinterId);
+    if(profile && profile.type==='USB' && profile.address && typeof window.AndroidPrinter.printRasterToDevice==='function'){
+      window.AndroidPrinter.printRasterToDevice(profile.address,b64,bytesPerLine,height);
+    }else{
+      window.AndroidPrinter.printRaster(b64,bytesPerLine,height);
+    }
     return;
   }
 
@@ -2908,9 +2913,28 @@ function renderPrinterProfilesWrap(){
   const printers=STATE.settings.printers||[];
   wrap.innerHTML=printers.length?'<table class="tbl"><thead><tr><th>שם</th><th>חיבור</th><th>כתובת/מזהה</th><th>פעולות</th></tr></thead><tbody>'+printers.map(p=>'<tr><td><b>'+esc(p.name)+'</b>'+(STATE.settings.defaultPrinterId===p.id?' <span class="pill green">ברירת מחדל</span>':'')+'</td><td>'+esc(p.type)+'</td><td dir="ltr">'+esc(p.address||'—')+'</td><td><button class="btn btn-ghost" onclick="openPrinterProfileModal(\\''+p.id+'\\')">ערוך</button> <button class="btn btn-red" onclick="deletePrinterProfile(\\''+p.id+'\\')">מחק</button></td></tr>').join('')+'</tbody></table>':'<div class="empty-state" style="padding:20px">🖨️ עדיין לא הוגדרה מדפסת</div>';
 }
+function mfixNativeUsbPrinters(){
+  try{
+    if(!window.AndroidPrinter || typeof window.AndroidPrinter.listUsbPrinters!=='function') return [];
+    const raw=window.AndroidPrinter.listUsbPrinters();
+    return JSON.parse(raw||'[]');
+  }catch(e){ console.error('[MFIX USB DISCOVERY]',e); return []; }
+}
 function openPrinterProfileModal(id){
   const p=(STATE.settings.printers||[]).find(x=>x.id===id)||{id:'',name:'',type:'USB',address:''};
-  openModal('🖨️ '+(id?'עריכת מדפסת':'הוספת מדפסת'),'<div class="grid2"><div class="field"><label class="flabel">שם המדפסת</label><input class="input" id="pm_name" value="'+esc(p.name)+'"></div><div class="field"><label class="flabel">סוג חיבור</label><select class="input" id="pm_type"><option '+(p.type==='USB'?'selected':'')+'>USB</option><option '+(p.type==='Bluetooth'?'selected':'')+'>Bluetooth</option><option '+(p.type==='Network'?'selected':'')+'>Network</option></select></div></div><div class="field"><label class="flabel">כתובת / IP / מזהה</label><input class="input" id="pm_address" value="'+esc(p.address||'')+'"></div>',{footer:'<button class="btn btn-ghost" onclick="closeModal()">ביטול</button><button class="btn btn-primary" onclick="savePrinterProfile(\\''+esc(p.id||'')+'\\')">שמור</button>'});
+  const usb=mfixNativeUsbPrinters();
+  openModal(`
+    <div class="modal-head"><h3>🖨️ ${id?'עריכת מדפסת':'הוספת מדפסת'}</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
+    <div class="modal-body">
+      <div class="grid2">
+        <div class="field"><label class="flabel">שם המדפסת</label><input class="input" id="pm_name" value="${esc(p.name)}"></div>
+        <div class="field"><label class="flabel">סוג חיבור</label><select class="input" id="pm_type"><option ${p.type==='USB'?'selected':''}>USB</option><option ${p.type==='Bluetooth'?'selected':''}>Bluetooth</option><option ${p.type==='Network'?'selected':''}>Network</option></select></div>
+      </div>
+      <div class="field"><label class="flabel">כתובת / IP / מזהה</label><input class="input" id="pm_address" value="${esc(p.address||'')}" placeholder="ל-USB: מזהה המדפסת מזיהוי אוטומטי"></div>
+      <div id="pm_usb_wrap">${usb.length?'<div class="muted" style="font-size:12px;margin-bottom:7px;">מדפסות USB מחוברות:</div>'+usb.map(d=>'<button class="btn btn-outline" style="margin:0 0 7px 7px;" onclick="document.getElementById(\\'pm_address\\').value=\\''+esc(d.id)+'\\'; document.getElementById(\\'pm_name\\').value=document.getElementById(\\'pm_name\\').value||\\''+esc(d.name)+'\\';">USB '+esc(d.name)+' (#'+d.vendorId+':'+d.productId+')</button>').join(''):'<div class="muted" style="font-size:12px;">לא זוהתה מדפסת USB כרגע. חברו מדפסת ואז פתחו מחדש חלון זה.</div>'}</div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal()">ביטול</button><button class="btn btn-primary" onclick="savePrinterProfile('${esc(p.id||'')}')">שמור</button></div>
+  `, {wide:false});
 }
 async function savePrinterProfile(id){
   const name=document.getElementById('pm_name').value.trim(); if(!name){toast('יש להזין שם למדפסת','error');return;}
@@ -2920,7 +2944,24 @@ async function savePrinterProfile(id){
   await persist('settings'); closeModal(); render(); toast('פרופיל המדפסת נשמר','ok');
 }
 async function deletePrinterProfile(id){ if(!confirm('למחוק את המדפסת?'))return; STATE.settings.printers=(STATE.settings.printers||[]).filter(p=>p.id!==id); if(STATE.settings.defaultPrinterId===id)STATE.settings.defaultPrinterId=''; await persist('settings'); render(); toast('המדפסת נמחקה','ok'); }
-async function testDefaultPrinter(){ const id=document.getElementById('st_defaultprinter')?.value||STATE.settings.defaultPrinterId; const p=(STATE.settings.printers||[]).find(x=>x.id===id); if(!p){toast('בחר מדפסת לבדיקה','error');return;} try{if(p.type==='USB'&&typeof mfixGetUsbPrinter==='function'){await mfixGetUsbPrinter();toast('חיבור USB נבחר בהצלחה','ok');}else toast('פרופיל '+p.name+' נשמר ומוכן לחיבור '+p.type,'ok');}catch(e){alert('בדיקת המדפסת נכשלה: '+(e?.message||e));}}
+async function testDefaultPrinter(){
+  const id=document.getElementById('st_defaultprinter')?.value||STATE.settings.defaultPrinterId;
+  const p=(STATE.settings.printers||[]).find(x=>x.id===id);
+  if(!p){toast('בחר מדפסת לבדיקה','err');return;}
+  try{
+    if(p.type==='USB' && window.AndroidPrinter && typeof window.AndroidPrinter.requestUsbPrinterTest==='function'){
+      window.AndroidPrinter.requestUsbPrinterTest(p.address||'');
+      toast('נשלחה בקשת בדיקה למדפסת '+p.name,'ok');
+      return;
+    }
+    if(p.type==='USB'&&typeof mfixGetUsbPrinter==='function'){
+      await mfixGetUsbPrinter();
+      toast('חיבור USB נבחר בהצלחה. בדיקה פיזית זמינה ב-APK Native.','ok');
+      return;
+    }
+    toast('אין עדיין מנוע הדפסה בפועל עבור '+p.type+'. USB נתמך ישירות בגרסת Android.','err');
+  }catch(e){alert('בדיקת המדפסת נכשלה: '+(e?.message||e));}
+}
 async function savePrinterSettings(){ STATE.settings.defaultPrinterId=document.getElementById('st_defaultprinter').value; STATE.settings.printerPaperWidth=document.getElementById('st_paperwidth').value; STATE.settings.printerCopies=Math.max(1,Number(document.getElementById('st_printercopies').value)||1); STATE.settings.printerAutoPrint=document.getElementById('st_autoprint').checked; await persist('settings'); toast('הגדרות המדפסות נשמרו','ok'); }
 async function saveLoyaltySettings(){
   Object.assign(STATE.settings,{
