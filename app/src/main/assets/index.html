@@ -976,6 +976,7 @@ function renderPaymentRows(){
         ${r.cleared? `<span class="pill green">✔ סלוקה — ${esc(r.approvalCode||'')}</span>` :
           `<button class="btn btn-outline" ${r.clearing?'disabled':''} onclick="clearCreditRow(${idx})">${r.clearing?'מסלוק...':'🔄 סלוק כעת'}</button>`}
       </div>`:''}
+      ${r.method==='credit' && !STATE.settings.creditClearingEnabled? `<div><input class="input" style="width:145px;" placeholder="מספר אישור ידני" value="${esc(r.approvalCode||'')}" oninput="paymentRows[${idx}].approvalCode=this.value;"></div>`:''}
       ${paymentRows.length>1?`<button class="btn btn-ghost" onclick="paymentRows.splice(${idx},1); renderPaymentRows(); refreshPaymentTotals();">✕</button>`:''}
     </div>`).join('');
 }
@@ -1047,6 +1048,13 @@ async function finalizeSale(){
     toast('העודף גדול מהמזומן ששולם. לא ניתן לתת עודף מתשלום באשראי/שובר.','err'); return;
   }
 
+  for(const r of paymentRows){
+    if(r.method==='credit'){
+      if(STATE.settings.creditClearingEnabled && !r.cleared){ toast('יש לבצע סליקה לפני סיום המכירה','err'); return; }
+      if(!STATE.settings.creditClearingEnabled && !(r.approvalCode||'').trim()){ toast('יש להזין מספר אישור ידני עבור אשראי','err'); return; }
+    }
+  }
+
   // validate gift card payments before finalizing anything
   for(const r of paymentRows){
     if(r.method==='giftcard'){
@@ -1073,7 +1081,7 @@ async function finalizeSale(){
       warrantyUntil: l.warrantyMonths>0 ? addMonths(todayISO(), l.warrantyMonths).toISOString() : undefined,
       giftCardCode: l.isGiftCardSale ? '' : undefined // filled in after code generation below
     })),
-    payments: paymentRows.map(r=>({method:r.method, amount:round2(Number(r.amount)||0), giftCode:r.method==='giftcard'?(r.giftCode||'').trim().toUpperCase():undefined, approvalCode:r.method==='credit'?(r.approvalCode||''):undefined})),
+    payments: paymentRows.map(r=>({method:r.method, amount:round2(Number(r.amount)||0), giftCode:r.method==='giftcard'?(r.giftCode||'').trim().toUpperCase():undefined, approvalCode:r.method==='credit'?(r.approvalCode||''):undefined, transactionId:r.method==='credit'?(r.transactionId||''):undefined, clearingMode:r.method==='credit'?(STATE.settings.creditClearingEnabled?'gateway':'manual'):undefined})),
     subtotal:calc.subtotalIncl, discount:calc.totalDiscount, vat:calc.vat, base:calc.base, total:calc.totalIncl,
     pointsRedeemed: calc.redeemPoints||0, redeemDiscount: calc.redeemValue||0,
     pointsEarned:0,
