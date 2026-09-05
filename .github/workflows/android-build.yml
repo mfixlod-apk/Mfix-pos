@@ -34,11 +34,11 @@ jobs:
                   if line != nl:
                       lines[i]=nl
                       changed=True
-          if not changed:
-              print('No known parked-sale quote bug found')
-          else:
+          if changed:
               p.write_text(''.join(lines),encoding='utf-8')
               print('Repaired parked-sale JavaScript quote bug')
+          else:
+              print('No known parked-sale quote bug found')
           PY
           if ! git diff --quiet -- app/src/main/assets/index.html; then
             git config user.name "MFIX POS CI"
@@ -79,16 +79,29 @@ jobs:
 
       - name: Validate MFIX JavaScript syntax
         run: |
-          python - <<'PY'
+          python3 - <<'PY'
           from pathlib import Path
+          import re
           html=Path('app/src/main/assets/index.html').read_text(encoding='utf-8')
-          start=html.find('<script>')
-          end=html.rfind('</script>')
-          if start < 0 or end < start:
-              raise SystemExit('Main MFIX script not found')
-          Path('/tmp/mfix-app.js').write_text(html[start+8:end], encoding='utf-8')
+          scripts=re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>', html, flags=re.I|re.S)
+          if not scripts:
+              raise SystemExit('No inline MFIX script found')
+          # The application is the largest inline script; this avoids extracting unrelated snippets.
+          script=max(scripts, key=len)
+          Path('/tmp/mfix-app.js').write_text(script, encoding='utf-8')
+          print(f'Extracted {len(script)} JavaScript characters from largest inline script')
           PY
-          node --check /tmp/mfix-app.js
+          if ! node --check /tmp/mfix-app.js 2>/tmp/mfix-node.err; then
+            cat /tmp/mfix-node.err
+            line=$(grep -oE ':[0-9]+$' /tmp/mfix-node.err | head -1 | tr -d ':')
+            if [ -n "$line" ]; then
+              start=$((line-4)); [ "$start" -lt 1 ] && start=1
+              end=$((line+4))
+              echo '--- JavaScript context ---'
+              nl -ba /tmp/mfix-app.js | sed -n "${start},${end}p"
+            fi
+            exit 1
+          fi
 
       - name: Assemble debug APK
         run: gradle --no-daemon --stacktrace --warning-mode all :app:assembleDebug
