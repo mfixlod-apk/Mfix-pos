@@ -1,0 +1,41 @@
+name: Build MFIX Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Extract MFIX project
+        run: |
+          unzip -o MFIX_Android_GitHub.zip -d extracted
+          find extracted -type f -name gradlew -exec dirname {} \; | head -1 > project_dir.txt
+          PROJECT_DIR=$(cat project_dir.txt)
+          cp -R "$PROJECT_DIR"/. .
+
+      - name: Make Gradle executable
+        run: chmod +x gradlew
+
+      - name: Build APK
+        run: ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: MFIX-APK
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
