@@ -3925,8 +3925,24 @@ function renderSalesList(){
   <div class="card">
     <div class="section-title">🧾 כל המכירות בתקופה</div>
     <div id="salesSummaryLine" class="muted" style="font-size:13px;margin-bottom:8px;"></div>
-    <table class="tbl"><thead><tr><th>מס'</th><th>תאריך</th><th>לקוח</th><th>אמצעי תשלום</th><th>סכום</th><th>פעולות</th></tr></thead><tbody id="salesTbody"></tbody></table>
+    <table class="tbl"><thead><tr><th>מס'</th><th>תאריך</th><th>לקוח</th><th>אמצעי תשלום</th><th>סכום</th><th>יש חשבונית</th><th>פעולות</th></tr></thead><tbody id="salesTbody"></tbody></table>
   </div>`;
+}
+function yeshInvoiceBadge(sale){
+  const y=sale.yeshInvoice;
+  if(!y) return '<span class="pill">לא סונכרן</span>';
+  if(y.status==='synced') return '<span class="pill green">✔ סונכרן'+(y.responseId?' #'+esc(String(y.responseId)):'')+'</span>';
+  if(y.status==='failed') return '<span class="pill red" title="'+esc(y.lastError||'שגיאה')+'">✖ נכשל</span>';
+  return '<span class="pill">ממתין</span>';
+}
+async function retryYeshInvoiceSync(saleId){
+  const sale=findSale(saleId);
+  if(!sale){toast('המכירה לא נמצאה','err');return;}
+  if(!STATE.settings.yeshInvoiceEnabled||!STATE.settings.yeshInvoiceEndpoint){toast('אינטגרציית יש חשבונית אינה מוגדרת','err');return;}
+  toast('מסנכרן מסמך #'+sale.number+'...','ok');
+  const result=await syncSaleToYeshInvoice(sale);
+  renderSalesTable();
+  if(result) toast('המסמך סונכרן בהצלחה','ok'); else toast('הסנכרון נכשל. בדקו Endpoint/הרשאות ביומן הפעולות.','err');
 }
 function renderSalesTable(){
   const tbody = document.getElementById('salesTbody');
@@ -3950,8 +3966,10 @@ function renderSalesTable(){
         <td>#${s.number}</td><td>${fmtDate(s.date)}</td><td>${esc(saleDisplayName(s))}</td>
         <td>${s.payments.map(p=>paymentMethodLabel(p.method)).join(', ')}</td>
         <td>${money(s.total)}</td>
+        <td>${STATE.settings.yeshInvoiceEnabled?yeshInvoiceBadge(s):'—'}</td>
         <td style="white-space:nowrap;">
           <button class="btn btn-ghost" style="padding:5px 9px;" onclick="openReceiptModal(findSale('${s.id}'))">👁️</button>
+          ${STATE.settings.yeshInvoiceEnabled?`<button class="btn btn-ghost" style="padding:5px 9px;" onclick="retryYeshInvoiceSync('${s.id}')">🔄</button>`:''}
           <button class="btn btn-ghost" style="padding:5px 9px;color:var(--red-600);" onclick="openReturnModal('${s.id}')">↩️ החזרה</button>
         </td>
       </tr>`).join('') : `<tr><td colspan="6">${emptyState('🧾','אין מכירות תואמות')}</td></tr>`;
