@@ -785,9 +785,34 @@ function renderCart(){
     ${calc.totalDiscount>0?`<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;color:var(--green-600);"><span>הנחת מבצעים</span><span>-${money(calc.totalDiscount)}</span></div>`:''}
     <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;" class="muted"><span>מע"מ (${STATE.settings.vatRate}%) כלול</span><span>${money(calc.vat)}</span></div>
     <div style="display:flex;justify-content:space-between;font-size:19px;font-weight:800;margin:8px 0 12px;"><span>סה"כ לתשלום</span><span>${money(calc.totalIncl)}</span></div>
-    <button class="btn btn-primary btn-block btn-lg" onclick="openPaymentModal()">💳 תשלום</button>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+      <button class="btn btn-outline btn-block" onclick="openCartDiscountModal()">🏷️ הנחה</button>
+      <button class="btn btn-outline btn-block" onclick="openParkSaleModal()">⏸️ השהה מכירה</button>
+    </div>
+    <button class="btn btn-primary btn-block btn-lg" style="margin-top:8px;" onclick="openPaymentModal()">💳 תשלום</button>
     <button class="btn btn-ghost btn-block" style="margin-top:8px;" onclick="clearCart()">נקה עגלה</button>
   `;
+}
+function openCartDiscountModal(){
+  const calc=computeCartCalc();
+  openModal(`<div class="modal-head"><h3>🏷️ הנחה על העגלה</h3><button class="modal-close" onclick="closeModal()">✕</button></div><div class="modal-body"><div class="grid2"><div class="field"><label class="flabel">סוג</label><select class="input" id="cd_type"><option value="percent">אחוזים (%)</option><option value="amount">סכום (₪)</option></select></div><div class="field"><label class="flabel">ערך</label><input class="input" id="cd_value" type="number" min="0" value="0"></div></div><div class="muted">סה"כ לפני הנחה: ${money(calc.totalIncl)}</div></div><div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal()">ביטול</button><button class="btn btn-primary" onclick="applyCartDiscount()">החל הנחה</button></div>`);
+}
+function applyCartDiscount(){
+  const type=document.getElementById('cd_type').value, value=Math.max(0,Number(document.getElementById('cd_value').value)||0);
+  if(!STATE.cart.length||value<=0){toast('הזן ערך הנחה תקין','err');return;}
+  const subtotal=STATE.cart.reduce((a,l)=>a+Number(l.unitPrice||0)*Number(l.qty||1),0);
+  let discount=type==='percent'?subtotal*Math.min(value,100)/100:Math.min(value,subtotal);
+  STATE.cartDiscount={type,value,amount:round2(discount)};
+  closeModal(); renderCart(); toast('ההנחה הוחלה על העגלה','ok');
+}
+function openParkSaleModal(){
+  openModal(`<div class="modal-head"><h3>⏸️ השהיית מכירה</h3><button class="modal-close" onclick="closeModal()">✕</button></div><div class="modal-body"><div class="field"><label class="flabel">שם/הערה למכירה</label><input class="input" id="park_note" placeholder="למשל: ממתין ללקוח"></div></div><div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal()">ביטול</button><button class="btn btn-primary" onclick="parkCurrentSale()">שמור להמשך</button></div>`);
+}
+async function parkCurrentSale(){
+  if(!STATE.cart.length){closeModal();return;}
+  STATE.preorders=STATE.preorders||[];
+  STATE.preorders.unshift({id:uid('parked'),status:'parked',note:document.getElementById('park_note').value.trim(),cart:JSON.parse(JSON.stringify(STATE.cart)),customerName:STATE.docCustomerName,customerPhone:STATE.docCustomerPhone,createdAt:new Date().toISOString()});
+  await persistMisc(); closeModal(); clearCart(); toast('המכירה הושהתה ונשמרה','ok');
 }
 function clearCart(){ STATE.cart=[]; STATE.cartCustomerId=null; STATE.linkedRepairId=null; STATE.docCustomerName=''; STATE.docCustomerPhone=''; STATE.pointsToRedeem=0; renderCart(); }
 
