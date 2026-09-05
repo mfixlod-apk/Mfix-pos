@@ -839,7 +839,7 @@ function openParkedSalesModal(){
   const list=(STATE.preorders||[]).filter(p=>p.status==='parked').sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
   const body=list.length?'<table class="tbl"><thead><tr><th>זמן</th><th>הערה</th><th>פריטים</th><th>סכום</th><th></th></tr></thead><tbody>'+list.map(p=>{
     const total=(p.cart||[]).reduce((s,l)=>s+(Number(l.unitPrice)||0)*(Number(l.qty)||1),0)-(Number(p.cartDiscount?.amount)||0);
-    return '<tr><td>'+fmtDate(p.createdAt)+'</td><td>'+esc(p.note||'—')+'</td><td>'+(p.cart||[]).reduce((s,l)=>s+(Number(l.qty)||1),0)+'</td><td><b>'+money(Math.max(0,total))+'</b></td><td><button class="btn btn-primary" onclick="resumeParkedSale(\\''+p.id+'\\')">המשך</button> <button class="btn btn-red" onclick="deleteParkedSale(\\''+p.id+'\\')">מחק</button></td></tr>';
+    return '<tr><td>'+fmtDate(p.createdAt)+'</td><td>'+esc(p.note||'—')+'</td><td>'+(p.cart||[]).reduce((s,l)=>s+(Number(l.qty)||1),0)+'</td><td><b>'+money(Math.max(0,total))+'</b></td><td><button class="btn btn-primary" onclick="resumeParkedSale('+JSON.stringify(p.id)+')">המשך</button> <button class="btn btn-red" onclick="deleteParkedSale('+JSON.stringify(p.id)+')">מחק</button></td></tr>';
   }).join('')+'</tbody></table>':'<div class="empty-state">אין כרגע מכירות מושהות.</div>';
   openModal('<div class="modal-head"><h3>📂 מכירות מושהות</h3><button class="modal-close" onclick="closeModal()">✕</button></div><div class="modal-body">'+body+'</div>',{wide:true});
 }
