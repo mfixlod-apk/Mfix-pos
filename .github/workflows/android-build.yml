@@ -75,11 +75,16 @@ jobs:
           from pathlib import Path
           import re
           html=Path('app/src/main/assets/index.html').read_text(encoding='utf-8')
-          scripts=re.findall(r'<script>(.*?)</script>', html, re.S)
-          if len(scripts)!=1:
-              raise SystemExit(f'Expected exactly one main script, found {len(scripts)}')
-          Path('/tmp/mfix-pos.js').write_text(scripts[0], encoding='utf-8')
-          print('Extracted MFIX JavaScript:', len(scripts[0]), 'bytes')
+          # The POS generates printable HTML inside JavaScript template strings,
+          # so nested literal <script> tags may appear in the source. Extract the
+          # outer application script from the first opening tag to the final closing tag.
+          start=html.find('<script>')
+          end=html.rfind('</script>')
+          if start < 0 or end < start:
+              raise SystemExit('Main MFIX application script was not found')
+          script=html[start+len('<script>'):end]
+          Path('/tmp/mfix-pos.js').write_text(script, encoding='utf-8')
+          print('Extracted MFIX JavaScript:', len(script), 'bytes')
           PY
           node --check /tmp/mfix-pos.js
 
