@@ -3331,12 +3331,15 @@ function openPromoModal(){
 }
 
 function exportBackup(){
+  if(!canManage()){toast('ייצוא גיבוי דורש הרשאת מנהל','err');return;}
   const data = {
-    format:'MFIX-POS-BACKUP', version:'1.2', exportedAt:new Date().toISOString(),
+    format:'MFIX-POS-BACKUP', version:'1.3', exportedAt:new Date().toISOString(),
+    meta:{app:'MFIX POS', exportedBy:STATE.currentRole||'cashier'},
     settings:STATE.settings, products:STATE.products, customers:STATE.customers,
     sales:STATE.sales, repairs:STATE.repairs, returns:STATE.returns||[],
     preorders:STATE.preorders||[], giftCards:STATE.giftCards||[],
-    auditLog:STATE.auditLog||[], inventoryHistory:STATE.inventoryHistory||[]
+    auditLog:STATE.auditLog||[], inventoryHistory:STATE.inventoryHistory||[],
+    shifts:STATE.shifts||[], currentShift:STATE.currentShift||null
   };
   const blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'});
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
@@ -3344,13 +3347,16 @@ function exportBackup(){
   setTimeout(()=>URL.revokeObjectURL(a.href),1000);
 }
 function importBackup(evt){
+  if(!canManage()){toast('ייבוא גיבוי דורש הרשאת מנהל','err'); evt.target.value=''; return;}
   const file = evt.target.files[0];
   if(!file) return;
+  if(file.size>50*1024*1024){toast('קובץ הגיבוי גדול מדי (מקסימום 50MB)','err');evt.target.value='';return;}
   const reader = new FileReader();
   reader.onload = async ()=>{
     try{
       const data = JSON.parse(reader.result);
       if(data.format!=='MFIX-POS-BACKUP') throw new Error('format');
+      if(!['1.2','1.3'].includes(String(data.version||''))) throw new Error('version');
       if(!data.settings || !Array.isArray(data.products) || !Array.isArray(data.customers) || !Array.isArray(data.sales)) throw new Error('structure');
       if(!confirm('ייבוא גיבוי יחליף את כל הנתונים הקיימים. להמשיך?')) return;
       STATE.settings = data.settings || STATE.settings;
@@ -3363,9 +3369,12 @@ function importBackup(evt){
       STATE.giftCards = data.giftCards || STATE.giftCards || [];
       STATE.auditLog = data.auditLog || STATE.auditLog || [];
       STATE.inventoryHistory = data.inventoryHistory || STATE.inventoryHistory || [];
-      await Promise.all(['settings','products','customers','sales','repairs','returns','preorders','giftCards','auditLog','inventoryHistory'].map(persist));
-      logAudit('ייבוא גיבוי', 'גיבוי מ-'+(data.exportedAt||'תאריך לא ידוע'));
+      STATE.shifts = Array.isArray(data.shifts) ? data.shifts : (STATE.shifts||[]);
+      STATE.currentShift = data.currentShift || null;
+      await Promise.all(['settings','products','customers','sales','repairs','returns','preorders','giftCards','auditLog','inventoryHistory','shifts','currentShift'].map(persist));
+      logAudit('ייבוא גיבוי', 'גיבוי v'+(data.version||'?')+' מ-'+(data.exportedAt||'תאריך לא ידוע'));
       await persist('auditLog');
+      evt.target.value='';
       render(); toast('הגיבוי יובא בהצלחה','ok');
     }catch(e){ toast('קובץ הגיבוי אינו תקין','err'); }
   };
