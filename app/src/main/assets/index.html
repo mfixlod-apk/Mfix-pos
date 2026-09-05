@@ -4481,15 +4481,25 @@ function afterRenderHooks(){
 }
 
 async function init(){
-  document.getElementById('app').innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100vh;width:100vw;font-size:15px;color:#6b7686;">טוען נתונים…</div>`;
-  await loadAll();
-  render();
-  setInterval(updateClock, 1000*30);
-  updateClock();
-  if(STATE.settings.rolesEnabled && STATE.settings.managerPin){
-    openRoleLoginModal(true);
+  const app=document.getElementById('app');
+  app.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100vh;width:100vw;font-size:15px;color:#6b7686;">טוען נתונים…</div>`;
+  try{
+    await loadAll();
+    render();
+    setInterval(updateClock, 1000*30);
+    updateClock();
+    if(STATE.settings.rolesEnabled && STATE.settings.managerPin){
+      openRoleLoginModal(true);
+    }
+  }catch(err){
+    console.error('[MFIX INIT]',err);
+    const message=String(err&&err.message||err||'Unknown error');
+    app.innerHTML=`<div style="height:100vh;padding:28px;display:flex;align-items:center;justify-content:center;background:#f5f7fa;font-family:Arial,sans-serif;direction:rtl;"><div style="max-width:520px;background:#fff;border-radius:16px;padding:24px;box-shadow:0 8px 30px rgba(0,0,0,.12);text-align:center;"><h2 style="margin-top:0;color:#dc2626;">MFIX POS לא נטען</h2><p>אירעה שגיאת הפעלה. פרטי השגיאה:</p><pre style="white-space:pre-wrap;text-align:left;direction:ltr;background:#111827;color:#fff;padding:12px;border-radius:8px;font-size:12px;">${esc(message)}</pre><button onclick="location.reload()" style="padding:10px 18px;border:0;border-radius:8px;background:#2158cf;color:white;font-size:15px;">נסה שוב</button></div></div>`;
+    try{ if(window.AndroidPrinter&&AndroidPrinter.reportAppError) AndroidPrinter.reportAppError(message); }catch(_){}
   }
 }
+window.addEventListener('error',e=>console.error('[MFIX WINDOW ERROR]',e.message,e.filename,e.lineno));
+window.addEventListener('unhandledrejection',e=>console.error('[MFIX PROMISE ERROR]',e.reason));
 window.addEventListener('DOMContentLoaded', init);
 </script>
 </body>
