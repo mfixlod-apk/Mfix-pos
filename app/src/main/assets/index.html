@@ -4035,8 +4035,10 @@ function yeshInvoiceBadge(sale){
   return '<span class="pill">ממתין</span>';
 }
 async function retryYeshInvoiceSync(saleId){
+  if(!canManage()){toast('סנכרון ידני ליש חשבונית דורש הרשאת מנהל','err');return;}
   const sale=findSale(saleId);
   if(!sale){toast('המכירה לא נמצאה','err');return;}
+  if(sale.yeshInvoice?.status==='synced'){toast('המסמך כבר סונכרן; לא בוצעה שליחה כפולה','err');return;}
   if(!STATE.settings.yeshInvoiceEnabled||!STATE.settings.yeshInvoiceEndpoint){toast('אינטגרציית יש חשבונית אינה מוגדרת','err');return;}
   toast('מסנכרן מסמך #'+sale.number+'...','ok');
   const result=await syncSaleToYeshInvoice(sale);
