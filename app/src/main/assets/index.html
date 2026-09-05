@@ -1983,7 +1983,7 @@ function inventoryHistoryForProduct(productId){
 }
 async function addInventoryHistory(productId,type,qty,before,after,reason){
   STATE.inventoryHistory=STATE.inventoryHistory||[];
-  STATE.inventoryHistory.push({id:uid('stock'),productId,type,qty:Number(qty)||0,before:Number(before)||0,after:Number(after)||0,reason:reason||'',at:todayISO()});
+  STATE.inventoryHistory.push({id:uid('stock'),productId,type,qty:Number(qty)||0,before:Number(before)||0,after:Number(after)||0,reason:reason||'',role:STATE.currentRole||'cashier',at:todayISO()});
   await persist('inventoryHistory');
 }
 function productAvailableQty(p){ return p.trackSerial ? (p.imeis||[]).filter(i=>i.status==='available').length : Number(p.stock||0); }
@@ -2330,17 +2330,20 @@ function openStockAdjustmentModal(){
   `);
 }
 async function saveStockAdjustment(){
+  if(!canManage()){toast('עדכון מלאי דורש הרשאת מנהל','err');return;}
   const p=getProduct(document.getElementById('sa_product').value);
   const qty=Math.max(0,Number(document.getElementById('sa_qty').value)||0);
   const mode=document.getElementById('sa_mode').value;
   if(!p){toast('יש לבחור מוצר','err');return;}
+  if(qty<=0 && mode!=='set'){toast('יש להזין כמות גדולה מאפס','err');return;}
   const old=Number(p.stock||0);
   p.stock=mode==='add'?old+qty:mode==='remove'?Math.max(0,old-qty):qty;
   const note=document.getElementById('sa_note').value.trim();
   p.stockHistory=p.stockHistory||[];
-  p.stockHistory.unshift({date:new Date().toISOString(),mode,qty,oldStock:old,newStock:p.stock,note});
+  p.stockHistory.unshift({date:new Date().toISOString(),mode,qty,oldStock:old,newStock:p.stock,note,role:STATE.currentRole||'cashier'});
   await persist('products');
   await addInventoryHistory(p.id,mode==='add'?'הוספת מלאי':mode==='remove'?'הפחתת מלאי':'קביעת מלאי',p.stock-old,old,p.stock,note);
+  logAudit('עדכון מלאי',p.name+' | '+old+' → '+p.stock+(note?' | '+note:'')); await persist('auditLog');
   closeModal(); render(); toast('המלאי עודכן מ-'+old+' ל-'+p.stock,'ok');
 }
 function openProductModal(productId){
