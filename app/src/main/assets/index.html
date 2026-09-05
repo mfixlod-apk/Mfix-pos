@@ -3242,11 +3242,11 @@ function openPromoModal(){
 
 function exportBackup(){
   const data = {
-    format:'MFIX-POS-BACKUP', version:'1.1', exportedAt:new Date().toISOString(),
+    format:'MFIX-POS-BACKUP', version:'1.2', exportedAt:new Date().toISOString(),
     settings:STATE.settings, products:STATE.products, customers:STATE.customers,
     sales:STATE.sales, repairs:STATE.repairs, returns:STATE.returns||[],
     preorders:STATE.preorders||[], giftCards:STATE.giftCards||[],
-    auditLog:STATE.auditLog||[]
+    auditLog:STATE.auditLog||[], inventoryHistory:STATE.inventoryHistory||[]
   };
   const blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'});
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
@@ -3260,7 +3260,8 @@ function importBackup(evt){
   reader.onload = async ()=>{
     try{
       const data = JSON.parse(reader.result);
-      if(data.format && data.format!=='MFIX-POS-BACKUP') throw new Error('format');
+      if(data.format!=='MFIX-POS-BACKUP') throw new Error('format');
+      if(!data.settings || !Array.isArray(data.products) || !Array.isArray(data.customers) || !Array.isArray(data.sales)) throw new Error('structure');
       if(!confirm('ייבוא גיבוי יחליף את כל הנתונים הקיימים. להמשיך?')) return;
       STATE.settings = data.settings || STATE.settings;
       STATE.products = data.products || STATE.products;
@@ -3271,7 +3272,10 @@ function importBackup(evt){
       STATE.preorders = data.preorders || STATE.preorders || [];
       STATE.giftCards = data.giftCards || STATE.giftCards || [];
       STATE.auditLog = data.auditLog || STATE.auditLog || [];
-      await Promise.all(['settings','products','customers','sales','repairs','returns','preorders','giftCards','auditLog'].map(persist));
+      STATE.inventoryHistory = data.inventoryHistory || STATE.inventoryHistory || [];
+      await Promise.all(['settings','products','customers','sales','repairs','returns','preorders','giftCards','auditLog','inventoryHistory'].map(persist));
+      logAudit('ייבוא גיבוי', 'גיבוי מ-'+(data.exportedAt||'תאריך לא ידוע'));
+      await persist('auditLog');
       render(); toast('הגיבוי יובא בהצלחה','ok');
     }catch(e){ toast('קובץ הגיבוי אינו תקין','err'); }
   };
