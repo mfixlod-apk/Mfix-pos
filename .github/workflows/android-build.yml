@@ -19,7 +19,7 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Repair known legacy JavaScript quote bug
+      - name: Repair known legacy JavaScript quote bugs
         if: github.event_name == 'push'
         run: |
           python3 - <<'PY'
@@ -32,19 +32,24 @@ jobs:
               if "resumeParkedSale(" in line and "deleteParkedSale(" in line and "return '<tr>" in line:
                   nl="    return '<tr><td>'+fmtDate(p.createdAt)+'</td><td>'+esc(p.note||'—')+'</td><td>'+(p.cart||[]).reduce((s,l)=>s+(Number(l.qty)||1),0)+'</td><td><b>'+money(Math.max(0,total))+'</b></td><td><button class=\"btn btn-primary\" onclick=\"resumeParkedSale('+JSON.stringify(p.id)+')\">המשך</button> <button class=\"btn btn-red\" onclick=\"deleteParkedSale('+JSON.stringify(p.id)+')\">מחק</button></td></tr>';\n"
                   if line != nl:
-                      lines[i]=nl
-                      changed=True
+                      lines[i]=nl; changed=True
+              if "function renderPrinterProfilesWrap" in ''.join(lines[max(0,i-4):i+1]):
+                  pass
+              if "openPrinterProfileModal" in line and "deletePrinterProfile" in line and "printers.map(p=>" in line:
+                  nl="  wrap.innerHTML=printers.length?'<table class=\"tbl\"><thead><tr><th>שם</th><th>חיבור</th><th>כתובת/מזהה</th><th>פעולות</th></tr></thead><tbody>'+printers.map(p=>'<tr><td><b>'+esc(p.name)+'</b>'+(STATE.settings.defaultPrinterId===p.id?' <span class=\"pill green\">ברירת מחדל</span>':'')+'</td><td>'+esc(p.type)+'</td><td dir=\"ltr\">'+esc(p.address||'—')+'</td><td><button class=\"btn btn-ghost\" onclick=\"openPrinterProfileModal('+JSON.stringify(p.id)+')\">ערוך</button> <button class=\"btn btn-red\" onclick=\"deletePrinterProfile('+JSON.stringify(p.id)+')\">מחק</button></td></tr>').join('')+'</tbody></table>':'<div class=\"empty-state\" style=\"padding:20px\">🖨️ עדיין לא הוגדרה מדפסת</div>';\n"
+                  if line != nl:
+                      lines[i]=nl; changed=True
           if changed:
               p.write_text(''.join(lines),encoding='utf-8')
-              print('Repaired parked-sale JavaScript quote bug')
+              print('Repaired known MFIX JavaScript quote bug(s)')
           else:
-              print('No known parked-sale quote bug found')
+              print('No known JavaScript quote bug found')
           PY
           if ! git diff --quiet -- app/src/main/assets/index.html; then
             git config user.name "MFIX POS CI"
             git config user.email "mfixlod@gmail.com"
             git add app/src/main/assets/index.html
-            git commit -m "Fix parked sale action quoting that caused blank WebView"
+            git commit -m "Fix printer profile action quoting that caused JavaScript syntax failure"
             git push
           fi
 
@@ -86,7 +91,6 @@ jobs:
           scripts=re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>', html, flags=re.I|re.S)
           if not scripts:
               raise SystemExit('No inline MFIX script found')
-          # The application is the largest inline script; this avoids extracting unrelated snippets.
           script=max(scripts, key=len)
           Path('/tmp/mfix-app.js').write_text(script, encoding='utf-8')
           print(f'Extracted {len(script)} JavaScript characters from largest inline script')
