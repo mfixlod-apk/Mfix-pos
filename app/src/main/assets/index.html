@@ -3974,7 +3974,11 @@ function updateRefundTotal(sale){
   if(el) el.textContent = money(round2(total));
 }
 async function processReturn(saleId){
+  if(STATE.settings.rolesEnabled && STATE.currentRole!=='manager'){
+    toast('החזר/זיכוי דורש אישור מנהל. התחברו כמנהל לפני ביצוע הפעולה.','err'); return;
+  }
   const sale = findSale(saleId);
+  if(!sale){ toast('מסמך המקור לא נמצא','err'); return; }
   const items = [];
   sale.items.forEach((it,idx)=>{
     const qty = returnSelections[idx]||0;
@@ -3984,17 +3988,23 @@ async function processReturn(saleId){
   const refundTotal = round2(items.reduce((a,it)=>a+it.qty*it.unitPrice,0));
   const refundMethod = document.getElementById('refundMethodSelect').value;
   const ret = {id:uid('ret'), number: STATE.settings.repairCounter ? (STATE.returns.length+1) : 1, date:todayISO(), originalSaleId:sale.id, items, refundTotal, refundMethod, processedBy:STATE.currentRole};
-  // restock
-  items.forEach(it=>{
+  // restock with audit history
+  for(const it of items){
     const p = getProduct(it.productId);
-    if(!p) return;
+    if(!p) continue;
     if(p.trackSerial && it.imei){
+      const before=productAvailableQty(p);
       const row = p.imeis.find(i=>i.imei1===it.imei);
-      if(row){ row.status='available'; row.soldTo=null; row.soldDate=null; row.saleId=null; }
+      if(row){
+        row.status='available'; row.soldTo=null; row.soldDate=null; row.saleId=null;
+        await addInventoryHistory(p.id,'החזרת יחידה סריאלית',it.qty,before,before+it.qty,'זיכוי ממסמך #'+sale.number+' | IMEI: '+it.imei);
+      }
     } else if(!p.isPart){
-      p.stock = (p.stock||0) + it.qty;
+      const before=Number(p.stock)||0;
+      p.stock = before + it.qty;
+      await addInventoryHistory(p.id,'החזרת מוצר',it.qty,before,p.stock,'זיכוי ממסמך #'+sale.number);
     }
-  });
+  }
   // reverse loyalty points earned proportionally (approximate, based on original sale's points-earning rate)
   if(sale.customerId && STATE.settings.loyaltyEnabled && sale.pointsEarned){
     const c = getCustomer(sale.customerId);
