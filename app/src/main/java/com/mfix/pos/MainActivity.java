@@ -23,7 +23,8 @@ public class MainActivity extends Activity {
             UsbDevice device = intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
             boolean granted = intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false);
             if (granted && device != null) {
-                new Thread(() -> printToDevice(device, pendingRaster, pendingBytesPerLine, pendingHeight)).start();
+                if (pendingRaster != null) new Thread(() -> printToDevice(device, pendingRaster, pendingBytesPerLine, pendingHeight)).start();
+                else new Thread(() -> printTestToDevice(device)).start();
             } else {
                 runOnUiThread(() -> Toast.makeText(MainActivity.this, "לא ניתנה הרשאה למדפסת USB", Toast.LENGTH_LONG).show());
             }
@@ -62,35 +63,90 @@ public class MainActivity extends Activity {
             byte[] raster;
             try { raster = Base64.decode(base64Raster, Base64.DEFAULT); }
             catch (Exception e) { toast("שגיאה בהכנת נתוני ההדפסה"); return; }
-
             UsbDevice printer = findPrinter();
             if (printer == null) { toast("לא נמצאה מדפסת USB מחוברת"); return; }
-
-            if (!usbManager.hasPermission(printer)) {
-                pendingRaster = raster;
-                pendingBytesPerLine = bytesPerLine;
-                pendingHeight = height;
-                int flags = PendingIntent.FLAG_UPDATE_CURRENT;
-                if (android.os.Build.VERSION.SDK_INT >= 31) flags |= PendingIntent.FLAG_MUTABLE;
-                PendingIntent pi = PendingIntent.getBroadcast(MainActivity.this, 0, new Intent(ACTION_USB_PERMISSION).setPackage(getPackageName()), flags);
-                usbManager.requestPermission(printer, pi);
-                return;
-            }
+            pendingRaster = raster;
+            pendingBytesPerLine = bytesPerLine;
+            pendingHeight = height;
+            if (!ensurePermission(printer)) return;
             new Thread(() -> printToDevice(printer, raster, bytesPerLine, height)).start();
+        }
+
+        @JavascriptInterface public String listUsbPrinters() {
+            StringBuilder out = new StringBuilder("[");
+            boolean first = true;
+            for (UsbDevice d : usbManager.getDeviceList().values()) {
+                if (!hasBulkOut(d)) continue;
+                if (!first) out.append(',');
+                first = false;
+                out.append("{\"id\":\"").append(escapeJson(d.getDeviceName())).append("\",")
+                   .append("\"name\":\"").append(escapeJson(d.getProductName()==null?"USB Printer":d.getProductName())).append("\",")
+                   .append("\"vendorId\":").append(d.getVendorId()).append(',')
+                   .append("\"productId\":").append(d.getProductId()).append(',')
+                   .append("\"authorized\":").append(usbManager.hasPermission(d)).append("}");
+            }
+            return out.append(']').toString();
+        }
+
+        @JavascriptInterface public void requestUsbPrinterTest(String deviceName) {
+            UsbDevice device = findPrinterByName(deviceName);
+            if (device == null) { toast("המדפסת שנבחרה אינה מחוברת"); return; }
+            pendingRaster = null;
+            if (!ensurePermission(device)) return;
+            new Thread(() -> printTestToDevice(device)).start();
         }
     }
 
+    private boolean ensurePermission(UsbDevice printer) {
+        if (usbManager.hasPermission(printer)) return true;
+        int flags = PendingIntent.FLAG_UPDATE_CURRENT;
+        if (android.os.Build.VERSION.SDK_INT >= 31) flags |= PendingIntent.FLAG_MUTABLE;
+        PendingIntent pi = PendingIntent.getBroadcast(this, 0, new Intent(ACTION_USB_PERMISSION).setPackage(getPackageName()), flags);
+        usbManager.requestPermission(printer, pi);
+        return false;
+    }
+
     private UsbDevice findPrinter() {
-        for (UsbDevice d : usbManager.getDeviceList().values()) {
-            for (int i=0;i<d.getInterfaceCount();i++) {
-                UsbInterface intf=d.getInterface(i);
-                for (int e=0;e<intf.getEndpointCount();e++) {
-                    UsbEndpoint ep=intf.getEndpoint(e);
-                    if (ep.getDirection()==UsbConstants.USB_DIR_OUT && ep.getType()==UsbConstants.USB_ENDPOINT_XFER_BULK) return d;
-                }
+        for (UsbDevice d : usbManager.getDeviceList().values()) if (hasBulkOut(d)) return d;
+        return null;
+    }
+
+    private UsbDevice findPrinterByName(String name) {
+        if (name == null || name.length() == 0) return findPrinter();
+        for (UsbDevice d : usbManager.getDeviceList().values()) if (name.equals(d.getDeviceName()) && hasBulkOut(d)) return d;
+        return null;
+    }
+
+    private boolean hasBulkOut(UsbDevice d) {
+        for (int i=0;i<d.getInterfaceCount();i++) {
+            UsbInterface intf=d.getInterface(i);
+            for (int e=0;e<intf.getEndpointCount();e++) {
+                UsbEndpoint ep=intf.getEndpoint(e);
+                if (ep.getDirection()==UsbConstants.USB_DIR_OUT && ep.getType()==UsbConstants.USB_ENDPOINT_XFER_BULK) return true;
             }
         }
-        return null;
+        return false;
+    }
+
+    private void printTestToDevice(UsbDevice device) {
+        UsbDeviceConnection conn = usbManager.openDevice(device);
+        if (conn == null) { toast("לא ניתן לפתוח את מדפסת ה-USB"); return; }
+        UsbInterface chosen=null; UsbEndpoint out=null;
+        try {
+            outer: for (int i=0;i<device.getInterfaceCount();i++) {
+                UsbInterface intf=device.getInterface(i);
+                for (int e=0;e<intf.getEndpointCount();e++) {
+                    UsbEndpoint ep=intf.getEndpoint(e);
+                    if (ep.getDirection()==UsbConstants.USB_DIR_OUT && ep.getType()==UsbConstants.USB_ENDPOINT_XFER_BULK) { chosen=intf; out=ep; break outer; }
+                }
+            }
+            if (chosen==null || out==null || !conn.claimInterface(chosen,true)) { toast("לא נמצאה יציאת הדפסה USB"); return; }
+            write(conn,out,new byte[]{0x1b,0x40,0x1b,0x61,0x01});
+            write(conn,out,"MFIX POS\nUSB PRINTER TEST\n\n".getBytes("UTF-8"));
+            write(conn,out,new byte[]{0x1b,0x64,0x03,0x1d,0x56,0x42,0x00});
+            toast("דף בדיקה נשלח למדפסת");
+        } catch (Exception e) { toast("שגיאת בדיקה: "+e.getMessage()); }
+        finally { if (chosen!=null) try { conn.releaseInterface(chosen); } catch(Exception ignored) {} conn.close(); }
     }
 
     private void printToDevice(UsbDevice device, byte[] raster, int bytesPerLine, int height) {
@@ -106,7 +162,6 @@ public class MainActivity extends Activity {
                 }
             }
             if (chosen==null || out==null || !conn.claimInterface(chosen,true)) { toast("לא נמצאה יציאת הדפסה USB"); return; }
-
             write(conn,out,new byte[]{0x1b,0x40,0x1b,0x61,0x00,0x1b,0x32});
             int xL=bytesPerLine & 255, xH=(bytesPerLine>>8)&255;
             final int MAX_ROWS=180;
@@ -121,12 +176,8 @@ public class MainActivity extends Activity {
             }
             write(conn,out,new byte[]{0x1b,0x64,0x03,0x1d,0x56,0x42,0x00});
             toast("ההדפסה נשלחה למדפסת");
-        } catch (Exception e) {
-            toast("שגיאת הדפסה: "+e.getMessage());
-        } finally {
-            if (chosen!=null) try { conn.releaseInterface(chosen); } catch(Exception ignored) {}
-            conn.close();
-        }
+        } catch (Exception e) { toast("שגיאת הדפסה: "+e.getMessage()); }
+        finally { if (chosen!=null) try { conn.releaseInterface(chosen); } catch(Exception ignored) {} conn.close(); }
     }
 
     private void write(UsbDeviceConnection conn, UsbEndpoint ep, byte[] data) throws Exception {
@@ -134,5 +185,6 @@ public class MainActivity extends Activity {
         if (sent != data.length) throw new Exception("USB נשלחו "+sent+" מתוך "+data.length+" בתים");
     }
 
+    private String escapeJson(String s) { return s.replace("\\", "\\\\").replace("\"", "\\\""); }
     private void toast(String msg) { runOnUiThread(() -> Toast.makeText(this,msg,Toast.LENGTH_LONG).show()); }
 }
