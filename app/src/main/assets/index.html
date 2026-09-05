@@ -812,10 +812,10 @@ function openParkSaleModal(){
 async function parkCurrentSale(){
   if(!STATE.cart.length){closeModal();return;}
   STATE.preorders=STATE.preorders||[];
-  STATE.preorders.unshift({id:uid('parked'),status:'parked',note:document.getElementById('park_note').value.trim(),cart:JSON.parse(JSON.stringify(STATE.cart)),customerName:STATE.docCustomerName,customerPhone:STATE.docCustomerPhone,createdAt:new Date().toISOString()});
+  STATE.preorders.unshift({id:uid('parked'),status:'parked',note:document.getElementById('park_note').value.trim(),cart:JSON.parse(JSON.stringify(STATE.cart)),cartDiscount:STATE.cartDiscount?JSON.parse(JSON.stringify(STATE.cartDiscount)):null,customerId:STATE.cartCustomerId||null,customerName:STATE.docCustomerName,customerPhone:STATE.docCustomerPhone,linkedRepairId:STATE.linkedRepairId||null,createdAt:new Date().toISOString()});
   await persistMisc(); closeModal(); clearCart(); toast('המכירה הושהתה ונשמרה','ok');
 }
-function clearCart(){ STATE.cart=[]; STATE.cartCustomerId=null; STATE.linkedRepairId=null; STATE.docCustomerName=''; STATE.docCustomerPhone=''; STATE.pointsToRedeem=0; renderCart(); }
+function clearCart(){ STATE.cart=[]; STATE.cartDiscount=null; STATE.cartCustomerId=null; STATE.linkedRepairId=null; STATE.docCustomerName=''; STATE.docCustomerPhone=''; STATE.pointsToRedeem=0; renderCart(); }
 
 /* ---- Payment modal ---- */
 let paymentRows = [];
@@ -1054,13 +1054,17 @@ async function finalizeSale(){
     const p = getProduct(l.productId);
     if(!p) return;
     if(p.trackSerial){
+      const before=productAvailableQty(p);
       const row = p.imeis.find(i=>i.imei1===l.imei);
       if(row){
         row.status='sold'; row.soldDate=todayISO(); row.soldTo=STATE.cartCustomerId||null; row.saleId=sale.id;
         if(l.warrantyMonths>0){ row.warrantyMonths=l.warrantyMonths; row.warrantyUntil=addMonths(todayISO(), l.warrantyMonths).toISOString(); }
+        await addInventoryHistory(p.id,'מכירת יחידה סריאלית',-1,before,before-1,'מסמך #'+number+' | Serial: '+(row.serial||'')+' | IMEI: '+(row.imei1||''));
       }
     } else if(!p.isPart){
-      p.stock = (Number(p.stock)||0) - l.qty;
+      const before=Number(p.stock)||0;
+      p.stock = before - l.qty;
+      await addInventoryHistory(p.id,'מכירה',-l.qty,before,p.stock,'מסמך #'+number);
     }
   });
   // deduct redeemed gift card balances
