@@ -2683,19 +2683,17 @@ function renderSettings(){
     </div>
 
     <div class="card">
-      <div class="section-title">🖨️ מדפסות</div>
-      <div class="field">
-        <label class="flabel">פורמט הדפסה ברירת מחדל</label>
-        <select class="input" id="st_printer">
-          <option value="thermal80" ${s.printerFormat==='thermal80'?'selected':''}>מדפסת סרט תרמית 80 מ"מ (גנרית)</option>
-          <option value="a4" ${s.printerFormat==='a4'?'selected':''}>מדפסת A4 רגילה</option>
-        </select>
+      <div class="section-title">🖨️ מנהל מדפסות</div>
+      <div class="muted" style="font-size:12px;margin-bottom:12px;">נהל מספר מדפסות ושמור לכל אחת הגדרות נפרדות.</div>
+      <div id="printerProfilesWrap"></div>
+      <div class="grid3" style="margin-top:12px;">
+        <div class="field"><label class="flabel">מדפסת ברירת מחדל</label><select class="input" id="st_defaultprinter"><option value="">בחר מדפסת</option>${(s.printers||[]).map(p=>'<option value="'+esc(p.id)+'" '+(s.defaultPrinterId===p.id?'selected':'')+'>'+esc(p.name)+'</option>').join('')}</select></div>
+        <div class="field"><label class="flabel">רוחב נייר</label><select class="input" id="st_paperwidth"><option value="58mm" ${s.printerPaperWidth==='58mm'?'selected':''}>58 מ"מ</option><option value="80mm" ${s.printerPaperWidth==='80mm'?'selected':''}>80 מ"מ</option></select></div>
+        <div class="field"><label class="flabel">עותקים</label><input class="input" id="st_printercopies" type="number" min="1" max="10" value="${Number(s.printerCopies||1)}"></div>
       </div>
-      <div class="muted" style="font-size:12px;">ניתן לבחור פורמט הדפסה שונה בכל מסמך בעת ההפקה. המערכת תואמת לכל מדפסת רגילה שמחוברת למחשב/דפדפן דרך תיבת ההדפסה של הדפדפן.</div>
-      <div class="muted" style="font-size:12px;margin-top:6px;background:var(--amber-100);color:#946200;padding:8px 10px;border-radius:8px;">💡 לתוצאה חדה וברורה במדפסת התרמית: בתיבת ההדפסה של הדפדפן ודאו ש"קנה מידה" (Scale) מוגדר על 100% ושאפשרות "התאמה לעמוד" (Fit to page) כבויה — אחרת חלק מהדפדפנים מקטינים את ההדפסה אוטומטית.</div>
-      <button class="btn btn-primary" style="margin-top:10px;" onclick="savePrinterSettings()">💾 שמור</button>
+      <label><input type="checkbox" id="st_autoprint" ${s.printerAutoPrint!==false?'checked':''}> הדפס אוטומטית אחרי מכירה</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;"><button class="btn btn-primary" onclick="openPrinterProfileModal()">➕ הוסף מדפסת</button><button class="btn btn-outline" onclick="savePrinterSettings()">💾 שמור</button><button class="btn btn-ghost" onclick="testDefaultPrinter()">🧪 בדיקה</button></div>
     </div>
-
     <div class="card">
       <div class="section-title">💳 אמצעי תשלום</div>
       <div id="paymentMethodsWrap"></div>
@@ -2856,10 +2854,25 @@ async function saveNumberingSettings(){
   });
   await persist('settings'); render(); toast('הגדרות מספור ומע"מ נשמרו','ok');
 }
-async function savePrinterSettings(){
-  STATE.settings.printerFormat = document.getElementById('st_printer').value;
-  await persist('settings'); toast('הגדרות מדפסת נשמרו','ok');
+function renderPrinterProfilesWrap(){
+  const wrap=document.getElementById('printerProfilesWrap'); if(!wrap)return;
+  const printers=STATE.settings.printers||[];
+  wrap.innerHTML=printers.length?'<table class="tbl"><thead><tr><th>שם</th><th>חיבור</th><th>כתובת/מזהה</th><th>פעולות</th></tr></thead><tbody>'+printers.map(p=>'<tr><td><b>'+esc(p.name)+'</b>'+(STATE.settings.defaultPrinterId===p.id?' <span class="pill green">ברירת מחדל</span>':'')+'</td><td>'+esc(p.type)+'</td><td dir="ltr">'+esc(p.address||'—')+'</td><td><button class="btn btn-ghost" onclick="openPrinterProfileModal(\\''+p.id+'\\')">ערוך</button> <button class="btn btn-red" onclick="deletePrinterProfile(\\''+p.id+'\\')">מחק</button></td></tr>').join('')+'</tbody></table>':'<div class="empty-state" style="padding:20px">🖨️ עדיין לא הוגדרה מדפסת</div>';
 }
+function openPrinterProfileModal(id){
+  const p=(STATE.settings.printers||[]).find(x=>x.id===id)||{id:'',name:'',type:'USB',address:''};
+  openModal('🖨️ '+(id?'עריכת מדפסת':'הוספת מדפסת'),'<div class="grid2"><div class="field"><label class="flabel">שם המדפסת</label><input class="input" id="pm_name" value="'+esc(p.name)+'"></div><div class="field"><label class="flabel">סוג חיבור</label><select class="input" id="pm_type"><option '+(p.type==='USB'?'selected':'')+'>USB</option><option '+(p.type==='Bluetooth'?'selected':'')+'>Bluetooth</option><option '+(p.type==='Network'?'selected':'')+'>Network</option></select></div></div><div class="field"><label class="flabel">כתובת / IP / מזהה</label><input class="input" id="pm_address" value="'+esc(p.address||'')+'"></div>',{footer:'<button class="btn btn-ghost" onclick="closeModal()">ביטול</button><button class="btn btn-primary" onclick="savePrinterProfile(\\''+esc(p.id||'')+'\\')">שמור</button>'});
+}
+async function savePrinterProfile(id){
+  const name=document.getElementById('pm_name').value.trim(); if(!name){toast('יש להזין שם למדפסת','error');return;}
+  const item={id:id||uid('printer'),name,type:document.getElementById('pm_type').value,address:document.getElementById('pm_address').value.trim()};
+  const list=STATE.settings.printers||[]; const idx=list.findIndex(x=>x.id===item.id); if(idx>=0)list[idx]=item; else list.push(item);
+  STATE.settings.printers=list; if(!STATE.settings.defaultPrinterId)STATE.settings.defaultPrinterId=item.id;
+  await persist('settings'); closeModal(); render(); toast('פרופיל המדפסת נשמר','ok');
+}
+async function deletePrinterProfile(id){ if(!confirm('למחוק את המדפסת?'))return; STATE.settings.printers=(STATE.settings.printers||[]).filter(p=>p.id!==id); if(STATE.settings.defaultPrinterId===id)STATE.settings.defaultPrinterId=''; await persist('settings'); render(); toast('המדפסת נמחקה','ok'); }
+async function testDefaultPrinter(){ const id=document.getElementById('st_defaultprinter')?.value||STATE.settings.defaultPrinterId; const p=(STATE.settings.printers||[]).find(x=>x.id===id); if(!p){toast('בחר מדפסת לבדיקה','error');return;} try{if(p.type==='USB'&&typeof mfixGetUsbPrinter==='function'){await mfixGetUsbPrinter();toast('חיבור USB נבחר בהצלחה','ok');}else toast('פרופיל '+p.name+' נשמר ומוכן לחיבור '+p.type,'ok');}catch(e){alert('בדיקת המדפסת נכשלה: '+(e?.message||e));}}
+async function savePrinterSettings(){ STATE.settings.defaultPrinterId=document.getElementById('st_defaultprinter').value; STATE.settings.printerPaperWidth=document.getElementById('st_paperwidth').value; STATE.settings.printerCopies=Math.max(1,Number(document.getElementById('st_printercopies').value)||1); STATE.settings.printerAutoPrint=document.getElementById('st_autoprint').checked; await persist('settings'); toast('הגדרות המדפסות נשמרו','ok'); }
 async function saveLoyaltySettings(){
   Object.assign(STATE.settings,{
     loyaltyEnabled:document.getElementById('st_loyaltyon').checked,
@@ -3934,7 +3947,7 @@ function renderTopRight(){
 
 function afterRenderHooks(){
   if(STATE.activeTab==='pos') bindPOSEvents();
-  if(STATE.activeTab==='settings'){ renderPaymentMethodsWrap(); renderPromoWrap('promoWrap'); renderRepairTemplatesWrap(); renderRepairDisclaimersWrap(); }
+  if(STATE.activeTab==='settings'){ renderPrinterProfilesWrap(); renderPaymentMethodsWrap(); renderPromoWrap('promoWrap'); renderRepairTemplatesWrap(); renderRepairDisclaimersWrap(); }
   if(STATE.activeTab==='inventory') renderInvTable();
   if(STATE.activeTab==='customers') renderCustTable();
   if(STATE.activeTab==='reports') afterReportsRender();
