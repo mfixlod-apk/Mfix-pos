@@ -2266,9 +2266,12 @@ async function saveStockAdjustment(){
   if(!p){toast('יש לבחור מוצר','err');return;}
   const old=Number(p.stock||0);
   p.stock=mode==='add'?old+qty:mode==='remove'?Math.max(0,old-qty):qty;
+  const note=document.getElementById('sa_note').value.trim();
   p.stockHistory=p.stockHistory||[];
-  p.stockHistory.unshift({date:new Date().toISOString(),mode,qty,oldStock:old,newStock:p.stock,note:document.getElementById('sa_note').value.trim()});
-  await persist('products'); closeModal(); render(); toast('המלאי עודכן מ-'+old+' ל-'+p.stock,'ok');
+  p.stockHistory.unshift({date:new Date().toISOString(),mode,qty,oldStock:old,newStock:p.stock,note});
+  await persist('products');
+  await addInventoryHistory(p.id,mode==='add'?'הוספת מלאי':mode==='remove'?'הפחתת מלאי':'קביעת מלאי',p.stock-old,old,p.stock,note);
+  closeModal(); render(); toast('המלאי עודכן מ-'+old+' ל-'+p.stock,'ok');
 }
 function openProductModal(productId){
   const p = productId ? getProduct(productId) : null;
@@ -2326,12 +2329,23 @@ async function saveProduct(productId){
   if(!name){ toast('חובה להזין שם מוצר','err'); return; }
   if(productId){
     const p = getProduct(productId);
+    const oldTrack=!!p.trackSerial, oldStock=productAvailableQty(p);
+    if(oldTrack!==trackSerial){
+      const hasSold=(p.imeis||[]).some(i=>i.status==='sold');
+      if(hasSold && !trackSerial){ toast('לא ניתן לבטל ניהול סריאלי לאחר שמכרת יחידות מהמוצר','err'); return; }
+      if(trackSerial && Number(p.stock||0)>0){ toast('לפני מעבר לניהול IMEI יש להגדיר את היחידות הסריאליות אחת-אחת. המלאי הכמותי נשאר עד להוספת היחידות.','err'); return; }
+    }
     Object.assign(p, {name,category,barcode,costPrice:cost,price,isPart,warrantyMonths});
     if(trackSerial && !p.trackSerial) p.imeis = p.imeis||[];
     p.trackSerial = trackSerial;
-    if(!trackSerial) p.stock = stock;
+    if(!trackSerial){
+      p.stock = stock;
+      if(oldStock!==stock) await addInventoryHistory(p.id,'עדכון מלאי בעריכת מוצר',stock-oldStock,oldStock,stock,'שינוי כמות מתוך עריכת מוצר');
+    }
   } else {
-    STATE.products.push({id:uid('p'), name, category, barcode, costPrice:cost, price, trackSerial, isPart, warrantyMonths, stock: trackSerial?undefined:stock, imeis: trackSerial?[]:undefined});
+    const np={id:uid('p'), name, category, barcode, costPrice:cost, price, trackSerial, isPart, warrantyMonths, stock: trackSerial?undefined:stock, imeis: trackSerial?[]:undefined};
+    STATE.products.push(np);
+    if(!trackSerial && stock>0) await addInventoryHistory(np.id,'מלאי פתיחה',stock,0,stock,'יצירת מוצר חדש');
   }
   await persist('products'); closeModal(); render(); toast('המוצר נשמר בהצלחה','ok');
 }
