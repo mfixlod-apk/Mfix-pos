@@ -27,6 +27,8 @@ jobs:
 
           mkdir -p /tmp/mfix-project
           cp -a "$PROJECT_DIR"/. /tmp/mfix-project/
+          # Remove archived workflows: GitHub Actions token cannot push workflow files from inside this run.
+          rm -rf /tmp/mfix-project/.github
 
           # Remove extracted project files from repo, but keep git metadata.
           find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
