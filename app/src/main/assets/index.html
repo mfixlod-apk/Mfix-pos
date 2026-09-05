@@ -2852,7 +2852,7 @@ function renderSettings(){
         <div class="field"><label class="flabel">סוג מסמך</label><input class="input" type="number" id="st_yeshdoctype" value="${Number(s.yeshInvoiceDocumentType)||9}"></div>
         <div class="field"><label class="flabel">מצב סנכרון</label><select class="input" id="st_yeshsync"><option value="manual" ${s.yeshInvoiceSyncMode==='manual'?'selected':''}>ידני בלבד</option><option value="auto" ${s.yeshInvoiceSyncMode==='auto'?'selected':''}>אוטומטי אחרי מכירה</option></select></div>
       </div>
-      <button class="btn btn-primary" onclick="saveYeshInvoiceSettings()">💾 שמור הגדרות יש חשבונית</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="btn btn-primary" onclick="saveYeshInvoiceSettings()">💾 שמור הגדרות יש חשבונית</button><button class="btn btn-ghost" onclick="testYeshInvoiceConnection()">🔌 בדוק חיבור</button></div>
     </div>
 
     <div class="card">
@@ -3032,7 +3032,7 @@ async function removeLogo(){
   STATE.settings.logoDataUrl = '';
   await persist('settings'); render(); toast('הלוגו הוסר','ok');
 }
-async async function saveYeshInvoiceSettings(){
+async function saveYeshInvoiceSettings(){
   STATE.settings.yeshInvoiceEnabled=document.getElementById('st_yeshenabled').checked;
   STATE.settings.yeshInvoiceEndpoint=document.getElementById('st_yeshendpoint').value.trim();
   STATE.settings.yeshInvoiceApiKey=document.getElementById('st_yeshkey').value.trim();
@@ -3040,6 +3040,16 @@ async async function saveYeshInvoiceSettings(){
   STATE.settings.yeshInvoiceSyncMode=document.getElementById('st_yeshsync').value;
   if(STATE.settings.yeshInvoiceEnabled && !STATE.settings.yeshInvoiceEndpoint){ toast('יש להזין Endpoint לפני הפעלת האינטגרציה','err'); return; }
   await persist('settings'); toast('הגדרות יש חשבונית נשמרו','ok');
+}
+async function testYeshInvoiceConnection(){
+  const endpoint=(document.getElementById('st_yeshendpoint')?.value||STATE.settings.yeshInvoiceEndpoint||'').trim();
+  const key=(document.getElementById('st_yeshkey')?.value||STATE.settings.yeshInvoiceApiKey||'').trim();
+  if(!endpoint){toast('יש להזין Endpoint לפני בדיקת חיבור','err');return;}
+  try{
+    const headers={}; if(key) headers.Authorization='Bearer '+key;
+    const res=await fetch(endpoint,{method:'OPTIONS',headers});
+    toast(res.ok||res.status===405?'ה־Endpoint הגיב ('+res.status+')':'ה־Endpoint החזיר HTTP '+res.status,res.ok||res.status===405?'ok':'err');
+  }catch(e){ toast('בדיקת החיבור נכשלה: '+String(e.message||e),'err'); }
 }
 async function syncSaleToYeshInvoice(sale){
   const s=STATE.settings;
