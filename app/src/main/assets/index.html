@@ -4136,14 +4136,31 @@ function renderReturnsList(){
     </tbody></table>`: emptyState('↩️','אין החזרות בטווח התאריכים שנבחר')}
   </div>`;
 }
+let auditRoleFilter='all', auditActionFilter='';
 function renderAuditLog(){
-  const list = STATE.auditLog.slice(0,200);
+  const q=(auditActionFilter||'').trim().toLowerCase();
+  const list=(STATE.auditLog||[]).filter(l=>{
+    if(auditRoleFilter!=='all' && l.role!==auditRoleFilter) return false;
+    if(q && !String(l.action||'').toLowerCase().includes(q) && !String(l.details||'').toLowerCase().includes(q)) return false;
+    return true;
+  }).slice(0,200);
   return `
+  <div class="card" style="margin-bottom:14px;">
+    <div class="section-title">📜 יומן פעולות</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+      <select class="input" style="max-width:170px;" onchange="auditRoleFilter=this.value;renderReports();">
+        <option value="all" ${auditRoleFilter==='all'?'selected':''}>כל התפקידים</option>
+        <option value="manager" ${auditRoleFilter==='manager'?'selected':''}>מנהל</option>
+        <option value="cashier" ${auditRoleFilter==='cashier'?'selected':''}>קופאי</option>
+      </select>
+      <input class="input" style="max-width:320px;" value="${esc(auditActionFilter)}" placeholder="חיפוש פעולה או פרטים..." oninput="auditActionFilter=this.value;renderReports();">
+      <span class="pill">${list.length} רשומות מוצגות</span>
+    </div>
+  </div>
   <div class="card">
-    <div class="section-title">📜 יומן פעולות (200 אחרונות)</div>
     ${list.length? `<table class="tbl"><thead><tr><th>תאריך</th><th>תפקיד</th><th>פעולה</th><th>פרטים</th></tr></thead><tbody>
-      ${list.map(l=>`<tr><td>${fmtDate(l.ts)}</td><td><span class="pill ${l.role==='manager'?'blue':'gray'}">${l.role==='manager'?'מנהל':'קופאי'}</span></td><td>${esc(l.action)}</td><td class="muted">${esc(l.details)}</td></tr>`).join('')}
-    </tbody></table>`: emptyState('📜','אין רשומות ביומן')}
+      ${list.map(l=>`<tr><td>${fmtDate(l.ts)}</td><td><span class="pill ${l.role==='manager'?'blue':'gray'}">${l.role==='manager'?'מנהל':'קופאי'}</span></td><td><b>${esc(l.action)}</b></td><td class="muted">${esc(l.details)}</td></tr>`).join('')}
+    </tbody></table>`: emptyState('📜','אין רשומות התואמות לסינון')}
   </div>`;
 }
 
