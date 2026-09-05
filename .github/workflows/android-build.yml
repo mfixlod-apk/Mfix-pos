@@ -15,13 +15,13 @@ jobs:
           distribution: temurin
           java-version: '17'
       - uses: android-actions/setup-android@v3
-      - name: Install Gradle 8.7
+      - name: Install Gradle 8.9
         run: |
-          wget -q https://services.gradle.org/distributions/gradle-8.7-bin.zip
-          unzip -q gradle-8.7-bin.zip -d $HOME
-          echo "$HOME/gradle-8.7/bin" >> $GITHUB_PATH
+          wget -q https://services.gradle.org/distributions/gradle-8.9-bin.zip
+          unzip -q gradle-8.9-bin.zip -d $HOME
+          echo "$HOME/gradle-8.9/bin" >> $GITHUB_PATH
       - name: Build debug APK
-        run: gradle --no-daemon :app:assembleDebug
+        run: gradle --no-daemon --stacktrace :app:assembleDebug
       - uses: actions/upload-artifact@v4
         with:
           name: MFIX-POS-debug-APK
