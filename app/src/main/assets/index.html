@@ -1095,9 +1095,11 @@ async function finalizeSale(){
     linkedRepairId: STATE.linkedRepairId||null,
     businessSnapshot:{name:STATE.settings.businessName, taxId:STATE.settings.taxId, businessType:STATE.settings.businessType, address:STATE.settings.address, phone:STATE.settings.phone}
   };
-  // decrement stock / mark imei sold / issue new gift cards / update linked preorders
+  // decrement stock / mark IMEI sold / issue new gift cards / update linked preorders.
+  // Use a sequential async loop because inventory history persistence is awaited.
   let touchedGiftCards=false, touchedPreorders=false;
-  calc.lines.forEach((l,idx)=>{
+  for(let idx=0; idx<calc.lines.length; idx++){
+    const l=calc.lines[idx];
     if(l.isGiftCardSale){
       const code = generateGiftCardCode();
       STATE.giftCards.push({code, initialValue:l.unitPrice, balance:l.unitPrice, issuedDate:todayISO(), issuedSaleId:sale.id, customerId:STATE.cartCustomerId||null});
@@ -1119,8 +1121,9 @@ async function finalizeSale(){
     if(!p) return;
     if(p.trackSerial){
       const before=productAvailableQty(p);
-      const row = p.imeis.find(i=>i.imei1===l.imei);
-      if(row){
+      const row = p.imeis.find(i=>i.imei1===l.imei && (!l.serial || i.serial===l.serial));
+      if(!row){ toast('יחידת IMEI/Serial השתנתה במהלך המכירה: '+l.name,'err'); return; }
+      {
         row.status='sold'; row.soldDate=todayISO(); row.soldTo=STATE.cartCustomerId||null; row.saleId=sale.id;
         if(l.warrantyMonths>0){ row.warrantyMonths=l.warrantyMonths; row.warrantyUntil=addMonths(todayISO(), l.warrantyMonths).toISOString(); }
         await addInventoryHistory(p.id,'מכירת יחידה סריאלית',-1,before,before-1,'מסמך #'+number+' | Serial: '+(row.serial||'')+' | IMEI: '+(row.imei1||''));
@@ -1130,7 +1133,7 @@ async function finalizeSale(){
       p.stock = before - l.qty;
       await addInventoryHistory(p.id,'מכירה',-l.qty,before,p.stock,'מסמך #'+number);
     }
-  });
+  }
   // deduct redeemed gift card balances
   paymentRows.forEach(r=>{
     if(r.method==='giftcard'){
