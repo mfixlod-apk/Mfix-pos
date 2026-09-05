@@ -3085,9 +3085,14 @@ async function testYeshInvoiceConnection(){
     toast(res.ok||res.status===405?'ה־Endpoint הגיב ('+res.status+')':'ה־Endpoint החזיר HTTP '+res.status,res.ok||res.status===405?'ok':'err');
   }catch(e){ toast('בדיקת החיבור נכשלה: '+String(e.message||e),'err'); }
 }
+function getYeshInvoicePayload(sale){
+  const s=STATE.settings;
+  return {source:'MFIX-POS',documentType:Number(s.yeshInvoiceDocumentType)||9,sale};
+}
 async function syncSaleToYeshInvoice(sale){
   const s=STATE.settings;
   if(!s.yeshInvoiceEnabled || !s.yeshInvoiceEndpoint) return {skipped:true};
+  if(sale.yeshInvoice?.status==='synced') return {skipped:true,reason:'already-synced'};
   const payload={source:'MFIX-POS',documentType:Number(s.yeshInvoiceDocumentType)||9,sale};
   try{
     const headers={'Content-Type':'application/json'};
@@ -3095,11 +3100,11 @@ async function syncSaleToYeshInvoice(sale){
     const res=await fetch(s.yeshInvoiceEndpoint,{method:'POST',headers,body:JSON.stringify(payload)});
     if(!res.ok) throw new Error('HTTP '+res.status);
     const data=await res.json().catch(()=>({}));
-    sale.yeshInvoice={status:'synced',syncedAt:new Date().toISOString(),responseId:data.id||data.documentId||data.number||null};
+    sale.yeshInvoice={status:'synced',syncedAt:new Date().toISOString(),responseId:data.id||data.documentId||data.number||null,lastError:null};
     await persist('sales'); logAudit('סנכרון יש חשבונית','מסמך #'+sale.number+' סונכרן'); await persist('auditLog');
     return data;
   }catch(e){
-    sale.yeshInvoice={status:'failed',lastError:String(e.message||e),lastAttemptAt:new Date().toISOString()};
+    sale.yeshInvoice={status:'failed',lastError:String(e.message||e),lastAttemptAt:new Date().toISOString(),attempts:Number(sale.yeshInvoice?.attempts||0)+1};
     await persist('sales'); logAudit('כשל סנכרון יש חשבונית','מסמך #'+sale.number+': '+String(e.message||e)); await persist('auditLog');
     return null;
   }
