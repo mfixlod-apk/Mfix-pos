@@ -16,14 +16,23 @@ jobs:
 
       - name: Extract Android project
         run: |
-          set -e
-          rm -rf extracted-source
-          mkdir extracted-source
+          set -euo pipefail
+          rm -rf extracted-source extracted-project
+          mkdir extracted-source extracted-project
           unzip -q MFIX_Android_GitHub.zip -d extracted-source
           PROJECT_DIR="$(find extracted-source -type f \( -name settings.gradle -o -name settings.gradle.kts \) -printf '%h\n' | head -n 1)"
           test -n "$PROJECT_DIR"
-          shopt -s dotglob
-          mv "$PROJECT_DIR"/* .
+          cp -a "$PROJECT_DIR"/. extracted-project/
+          rm -rf extracted-source
+
+          # Preserve repository workflows and project source separately.
+          mkdir -p extracted-project/.github
+          if [ -d .github ]; then
+            cp -a .github/. extracted-project/.github/
+          fi
+          mv extracted-project/. extracted-source/
+          find . -mindepth 1 -maxdepth 1 ! -name .git ! -name extracted-source -exec rm -rf {} +
+          cp -a extracted-source/. .
           rm -rf extracted-source
 
       - name: Commit extracted source
