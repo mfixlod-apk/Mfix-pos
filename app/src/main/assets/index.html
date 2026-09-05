@@ -1031,7 +1031,13 @@ function refreshPaymentTotals(){
 
 async function finalizeSale(){
   const calc = calcWithRedeem();
-  const paid = round2(paymentRows.reduce((a,r)=>a+(Number(r.amount)||0),0));
+  if(!paymentRows.length){ toast('יש לבחור לפחות אמצעי תשלום אחד','err'); return; }
+  for(const r of paymentRows){
+    const amount=Number(r.amount);
+    if(!Number.isFinite(amount) || amount<=0){ toast('כל אמצעי תשלום חייב להכיל סכום חיובי','err'); return; }
+    if(!r.method){ toast('חסר אמצעי תשלום','err'); return; }
+  }
+  const paid = round2(paymentRows.reduce((a,r)=>a+Number(r.amount),0));
   if(paid < calc.totalIncl - 0.01){ toast('הסכום ששולם נמוך מהסכום לתשלום','err'); return; }
 
   // Final stock validation: prevents checkout when another sale/edit changed inventory while cart was open.
@@ -1061,17 +1067,22 @@ async function finalizeSale(){
     }
   }
 
-  // validate gift card payments before finalizing anything
+  // Validate gift card payments in aggregate, so the same card cannot be overdrawn via split rows.
+  const giftCardTotals={};
   for(const r of paymentRows){
     if(r.method==='giftcard'){
-      const code = (r.giftCode||'').trim().toUpperCase();
-      const card = STATE.giftCards.find(g=>g.code===code);
-      if(!card){ toast('קוד שובר לא נמצא: '+code,'err'); return; }
-      if(card.balance < Number(r.amount)-0.01){ toast(`יתרת השובר ${code} (${money(card.balance)}) נמוכה מהסכום שהוזן`,'err'); return; }
+      const code=(r.giftCode||'').trim().toUpperCase();
+      if(!code){ toast('יש להזין קוד שובר מתנה','err'); return; }
+      giftCardTotals[code]=round2((giftCardTotals[code]||0)+Number(r.amount));
     }
     if(r.method==='credit' && STATE.settings.creditClearingEnabled && !r.cleared){
       toast('יש לסלוק את תשלום האשראי (לחצו "סלוק כעת") לפני השלמת המכירה','err'); return;
     }
+  }
+  for(const [code,total] of Object.entries(giftCardTotals)){
+    const card=STATE.giftCards.find(g=>g.code===code);
+    if(!card){ toast('קוד שובר לא נמצא: '+code,'err'); return; }
+    if(Number(card.balance)<total-0.01){ toast('יתרת השובר '+code+' ('+money(card.balance)+') נמוכה מסך התשלום '+money(total),'err'); return; }
   }
   const docType = document.getElementById('docTypeSelect').value;
   const isInvoice = docType==='invoice_receipt';
