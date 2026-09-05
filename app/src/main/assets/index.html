@@ -668,7 +668,14 @@ function addImeiToCart(productId, imeiRowId){
   toast('נוסף לעגלה','ok');
 }
 function clearPosSearch(){ posSearchTerm=''; const el=document.getElementById('posSearch'); if(el){el.value='';} renderPOSGrid(); if(el) el.focus(); }
+function availableCartQty(productId){
+  return STATE.cart.filter(l=>l.productId===productId && !l.imeiRowId).reduce((sum,l)=>sum+(Number(l.qty)||0),0);
+}
 function addToCart(product, qty){
+  qty=Math.max(1,Number(qty)||1);
+  const available=Number(productAvailableQty(product))||0;
+  const requested=availableCartQty(product.id)+qty;
+  if(requested>available){ toast('אין מספיק מלאי זמין. זמין: '+available+', בעגלה: '+availableCartQty(product.id),'err'); return; }
   const existing = STATE.cart.find(l=>l.productId===product.id && !l.imeiRowId);
   if(existing){ existing.qty += qty; }
   else{ STATE.cart.push({lineId:uid('ln'), productId:product.id, name:product.name, qty:qty, unitPrice:product.price, isGift:false}); }
@@ -683,7 +690,10 @@ function changeCartQty(lineId, delta){
   const line = STATE.cart.find(l=>l.lineId===lineId);
   if(!line) return;
   if(line.imeiRowId){ toast('מוצר עם סריאל — כמות תמיד 1. הסר והוסף יחידה נוספת אם צריך.'); return; }
-  line.qty = Math.max(1, line.qty+delta);
+  const next=Math.max(1,line.qty+delta);
+  const p=getProduct(line.productId);
+  if(p && next>Number(productAvailableQty(p)||0)){ toast('אין מספיק מלאי זמין. זמין: '+productAvailableQty(p),'err'); return; }
+  line.qty = next;
   renderCart();
 }
 
