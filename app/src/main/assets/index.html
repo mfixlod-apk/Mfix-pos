@@ -2419,6 +2419,7 @@ function openProductModal(productId){
   `);
 }
 async function saveProduct(productId){
+  if(!canManage()){ toast('יצירה ועריכת מוצרים דורשות הרשאת מנהל','err'); return; }
   const name = document.getElementById('pf_name').value.trim();
   const category = document.getElementById('pf_category').value.trim() || 'כללי';
   const barcode = document.getElementById('pf_barcode').value.trim();
@@ -2450,7 +2451,10 @@ async function saveProduct(productId){
     STATE.products.push(np);
     if(!trackSerial && stock>0) await addInventoryHistory(np.id,'מלאי פתיחה',stock,0,stock,'יצירת מוצר חדש');
   }
-  await persist('products'); closeModal(); render(); toast('המוצר נשמר בהצלחה','ok');
+  await persist('products');
+  const saved=productId?getProduct(productId):STATE.products[STATE.products.length-1];
+  logAudit(productId?'עריכת מוצר':'יצירת מוצר',(saved?.name||name)+(barcode?' | ברקוד: '+barcode:'')); await persist('auditLog');
+  closeModal(); render(); toast('המוצר נשמר בהצלחה','ok');
 }
 async function deleteProduct(productId){
   if(!canManage()){ toast('מחיקת מוצר דורשת הרשאת מנהל','err'); return; }
