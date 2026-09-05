@@ -40,6 +40,20 @@ jobs:
           gradle --version
           sdkmanager --list | head -n 80
 
+      - name: Validate embedded MFIX web app syntax
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          html=Path('app/src/main/assets/index.html').read_text(encoding='utf-8')
+          scripts=re.findall(r'<script>(.*?)</script>', html, re.S)
+          if len(scripts)!=1:
+              raise SystemExit(f'Expected exactly one main script, found {len(scripts)}')
+          Path('/tmp/mfix-pos.js').write_text(scripts[0], encoding='utf-8')
+          print('Extracted MFIX JavaScript:', len(scripts[0]), 'bytes')
+          PY
+          node --check /tmp/mfix-pos.js
+
       - name: Assemble debug APK
         run: gradle --no-daemon --stacktrace --warning-mode all :app:assembleDebug
 
