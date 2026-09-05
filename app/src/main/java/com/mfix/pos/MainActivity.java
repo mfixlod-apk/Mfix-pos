@@ -47,8 +47,14 @@ public class MainActivity extends Activity {
         st.setAllowFileAccess(true);
         st.setAllowContentAccess(true);
         st.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+        web.setBackgroundColor(android.graphics.Color.WHITE);
         web.setWebViewClient(new WebViewClient());
-        web.setWebChromeClient(new WebChromeClient());
+        web.setWebChromeClient(new WebChromeClient() {
+            @Override public boolean onConsoleMessage(ConsoleMessage m) {
+                android.util.Log.e("MFIX_WEB", m.message() + " @" + m.lineNumber() + " " + m.sourceId());
+                return false;
+            }
+        });
         web.addJavascriptInterface(new PrinterBridge(), "AndroidPrinter");
         web.loadUrl("file:///android_asset/index.html");
     }
@@ -97,6 +103,10 @@ public class MainActivity extends Activity {
                    .append("\"authorized\":").append(usbManager.hasPermission(d)).append("}");
             }
             return out.append(']').toString();
+        }
+
+        @JavascriptInterface public void reportAppError(String message) {
+            android.util.Log.e("MFIX_APP", message == null ? "Unknown app error" : message);
         }
 
         @JavascriptInterface public void requestUsbPrinterTest(String deviceName) {
