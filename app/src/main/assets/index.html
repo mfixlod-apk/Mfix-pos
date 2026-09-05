@@ -658,8 +658,10 @@ function openWarrantyPrompt(productId, imeiRowId){
 }
 function addImeiToCart(productId, imeiRowId){
   const p = getProduct(productId);
-  const row = p.imeis.find(i=>i.id===imeiRowId);
-  if(!row || row.status!=='available'){ toast('היחידה כבר נמכרה','err'); return; }
+  if(!p){toast('המוצר לא נמצא','err');return;}
+  const row = (p.imeis||[]).find(i=>i.id===imeiRowId);
+  if(!row || row.status!=='available'){ toast('היחידה כבר נמכרה או אינה זמינה','err'); return; }
+  if(STATE.cart.some(l=>l.imeiRowId===imeiRowId)){ toast('יחידת IMEI זו כבר נמצאת בעגלה','err'); return; }
   const monthsInput = document.getElementById('warrantyMonthsInput');
   const warrantyMonths = monthsInput ? (Number(monthsInput.value)||0) : 0;
   STATE.cart.push({lineId:uid('ln'), productId:p.id, name:p.name, qty:1, unitPrice:p.price, imei:row.imei1, imei2:row.imei2, serial:row.serial, imeiRowId:row.id, isGift:false, warrantyMonths});
