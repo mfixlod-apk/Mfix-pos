@@ -3523,8 +3523,11 @@ function attemptRoleLogin(role){
     document.getElementById('loginError').textContent = 'קוד PIN שגוי';
     return;
   }
+  const previousRole=STATE.currentRole;
   STATE.currentRole = role;
   if(!tabAllowed(STATE.activeTab)) STATE.activeTab = 'pos';
+  logAction(role==='manager'?'כניסת מנהל':'כניסת קופאי', previousRole+' → '+role);
+  persist('auditLog');
   closeModal();
   forceShellRebuild();
   toast('מחוברים כ' + (role==='manager'?'מנהל':'קופאי'), 'ok');
@@ -4121,6 +4124,19 @@ function tabAllowed(id){
   return !RESTRICTED_FOR_CASHIER.includes(id);
 }
 function visibleTabs(){ return TABS.filter(t=>tabAllowed(t.id)); }
+function requireManager(action){
+  if(canManage()) return true;
+  openModal('<div class="modal-head"><h3>🔒 אישור מנהל</h3><button class="modal-close" onclick="closeModal()">✕</button></div><div class="modal-body"><div class="muted">הפעולה "'+esc(action||'פעולה מוגנת')+'" דורשת קוד מנהל.</div><div class="field" style="margin-top:14px;"><label class="flabel">PIN מנהל</label><input class="input" id="managerOverridePin" type="password" inputmode="numeric" autofocus></div><div id="managerOverrideError" style="color:var(--red-600);font-size:12px;"></div></div><div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal()">ביטול</button><button class="btn btn-primary" onclick="confirmManagerOverride('+JSON.stringify(action||'פעולה מוגנת')+')">אישור</button></div>');
+  return false;
+}
+function confirmManagerOverride(action){
+  const pin=(document.getElementById('managerOverridePin').value||'').trim();
+  if(!STATE.settings.managerPin || pin===STATE.settings.managerPin){
+    logAction('אישור מנהל',action); persist('auditLog'); closeModal(); toast('אישור מנהל התקבל','ok');
+    return true;
+  }
+  document.getElementById('managerOverrideError').textContent='קוד מנהל שגוי'; return false;
+}
 function canManage(){ return !STATE.settings.rolesEnabled || STATE.currentRole==='manager'; }
 
 function appShell(){
