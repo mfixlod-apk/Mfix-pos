@@ -3795,6 +3795,7 @@ function afterReportsRender(){
   if(reportsSubTab==='preorders') body.innerHTML = renderPreordersList();
   if(reportsSubTab==='giftcards') body.innerHTML = renderGiftCardsList();
   if(reportsSubTab==='audit') body.innerHTML = renderAuditLog();
+  if(reportsSubTab==='shifts') body.innerHTML = renderShiftsReport();
 }
 function inRange(dateStr){
   const d = new Date(dateStr);
@@ -4135,6 +4136,26 @@ function renderReturnsList(){
       ${list.map(r=>{ const s=findSale(r.originalSaleId); return `<tr><td>${fmtDate(r.date)}</td><td>#${s?s.number:'—'}</td><td>${money(r.refundTotal)}</td><td>${paymentMethodLabel(r.refundMethod)}</td></tr>`; }).join('')}
     </tbody></table>`: emptyState('↩️','אין החזרות בטווח התאריכים שנבחר')}
   </div>`;
+}
+function renderShiftsReport(){
+  const shifts=[...(STATE.shifts||[])].sort((a,b)=>new Date(b.openedAt)-new Date(a.openedAt));
+  const closed=shifts.filter(s=>s.status==='closed');
+  const expected=closed.reduce((n,s)=>n+(Number(s.expectedCash)||0),0);
+  const counted=closed.reduce((n,s)=>n+(Number(s.closingCashCounted)||0),0);
+  const variance=closed.reduce((n,s)=>n+(Number(s.difference)||0),0);
+  return `
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:14px;">
+      ${statCard('🏦','משמרות סגורות',closed.length,'var(--blue-500)')}
+      ${statCard('💵','מזומן צפוי',money(round2(expected)),'var(--purple-500)')}
+      ${statCard('🧮','מזומן נספר',money(round2(counted)),'var(--green-600)')}
+      ${statCard('⚖️','הפרש מצטבר',money(round2(variance)),'var(--red-600)')}
+    </div>
+    <div class="card">
+      <div class="section-title">🏦 היסטוריית משמרות</div>
+      ${shifts.length?`<table class="tbl"><thead><tr><th>פתיחה</th><th>סגירה</th><th>סטטוס</th><th>קופה פתיחה</th><th>צפוי</th><th>נספר</th><th>הפרש</th></tr></thead><tbody>
+      ${shifts.map(s=>`<tr><td>${fmtDate(s.openedAt)}</td><td>${s.closedAt?fmtDate(s.closedAt):'—'}</td><td><span class="pill ${s.status==='closed'?'green':'blue'}">${s.status==='closed'?'סגורה':'פתוחה'}</span></td><td>${money(Number(s.openingCash)||0)}</td><td>${s.status==='closed'?money(Number(s.expectedCash)||0):'—'}</td><td>${s.status==='closed'?money(Number(s.closingCashCounted)||0):'—'}</td><td>${s.status==='closed'?money(Number(s.difference)||0):'—'}</td></tr>`).join('')}
+      </tbody></table>`:emptyState('🏦','אין היסטוריית משמרות עדיין')}
+    </div>`;
 }
 let auditRoleFilter='all', auditActionFilter='';
 function renderAuditLog(){
