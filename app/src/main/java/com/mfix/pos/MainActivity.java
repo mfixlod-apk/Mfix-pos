@@ -8,6 +8,7 @@ import android.util.Base64;
 import android.webkit.*;
 import android.widget.Toast;
 
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 public class MainActivity extends Activity {
@@ -73,20 +74,38 @@ public class MainActivity extends Activity {
             byte[] raster;
             try { raster = Base64.decode(base64Raster, Base64.DEFAULT); }
             catch (Exception e) { toast("שגיאה בהכנת נתוני ההדפסה"); return; }
-
+            if (bytesPerLine <= 0 || height <= 0 || raster.length < bytesPerLine * height) {
+                toast("נתוני ההדפסה אינם תקינים"); return;
+            }
             UsbDevice printer = findPrinterByName(deviceName);
             if (printer == null) {
-                toast(deviceName == null || deviceName.length() == 0
-                    ? "לא נמצאה מדפסת USB מחוברת"
-                    : "המדפסת שנבחרה אינה מחוברת");
+                toast(deviceName == null || deviceName.length() == 0 ? "לא נמצאה מדפסת USB מחוברת" : "המדפסת שנבחרה אינה מחוברת");
                 return;
             }
-
             pendingRaster = raster;
             pendingBytesPerLine = bytesPerLine;
             pendingHeight = height;
             if (!ensurePermission(printer)) return;
             new Thread(() -> printToDevice(printer, raster, bytesPerLine, height)).start();
+        }
+
+        // Raw ESC/POS is intentionally exposed only for supported USB bulk-output printers.
+        @JavascriptInterface public void printEscPosToDevice(String deviceName, String base64Data) {
+            byte[] data;
+            try { data = Base64.decode(base64Data, Base64.DEFAULT); }
+            catch (Exception e) { toast("נתוני ESC/POS אינם תקינים"); return; }
+            UsbDevice printer = findPrinterByName(deviceName);
+            if (printer == null) { toast("המדפסת שנבחרה אינה מחוברת"); return; }
+            if (!ensurePermission(printer)) return;
+            new Thread(() -> sendRawToDevice(printer, data, true)).start();
+        }
+
+        @JavascriptInterface public void openCashDrawer(String deviceName) {
+            UsbDevice printer = findPrinterByName(deviceName);
+            if (printer == null) { toast("לא נמצאה מדפסת USB לפתיחת מגירה"); return; }
+            if (!ensurePermission(printer)) return;
+            // ESC/POS pulse on pin 2: 27 112 0 25 250
+            new Thread(() -> sendRawToDevice(printer, new byte[]{0x1b,0x70,0x00,0x19,(byte)0xfa}, false)).start();
         }
 
         @JavascriptInterface public String listUsbPrinters() {
@@ -100,9 +119,16 @@ public class MainActivity extends Activity {
                    .append("\"name\":\"").append(escapeJson(d.getProductName()==null?"USB Printer":d.getProductName())).append("\",")
                    .append("\"vendorId\":").append(d.getVendorId()).append(',')
                    .append("\"productId\":").append(d.getProductId()).append(',')
-                   .append("\"authorized\":").append(usbManager.hasPermission(d)).append("}");
+                   .append("\"authorized\":").append(usbManager.hasPermission(d)).append(',')
+                   .append("\"transport\":\"usb-bulk\",\"escpos\":true,\"raster\":true,\"cashDrawerPulse\":true}");
             }
             return out.append(']').toString();
+        }
+
+        @JavascriptInterface public String getPrinterCapabilities(String deviceName) {
+            UsbDevice d = findPrinterByName(deviceName);
+            if (d == null) return "{\"connected\":false}";
+            return "{\"connected\":true,\"authorized\":" + usbManager.hasPermission(d) + ",\"transport\":\"usb-bulk\",\"escpos\":true,\"raster\":true,\"cashDrawerPulse\":true}";
         }
 
         @JavascriptInterface public void reportAppError(String message) {
@@ -150,24 +176,12 @@ public class MainActivity extends Activity {
     }
 
     private void printTestToDevice(UsbDevice device) {
-        UsbDeviceConnection conn = usbManager.openDevice(device);
-        if (conn == null) { toast("לא ניתן לפתוח את מדפסת ה-USB"); return; }
-        UsbInterface chosen=null; UsbEndpoint out=null;
-        try {
-            outer: for (int i=0;i<device.getInterfaceCount();i++) {
-                UsbInterface intf=device.getInterface(i);
-                for (int e=0;e<intf.getEndpointCount();e++) {
-                    UsbEndpoint ep=intf.getEndpoint(e);
-                    if (ep.getDirection()==UsbConstants.USB_DIR_OUT && ep.getType()==UsbConstants.USB_ENDPOINT_XFER_BULK) { chosen=intf; out=ep; break outer; }
-                }
-            }
-            if (chosen==null || out==null || !conn.claimInterface(chosen,true)) { toast("לא נמצאה יציאת הדפסה USB"); return; }
-            write(conn,out,new byte[]{0x1b,0x40,0x1b,0x61,0x01});
-            write(conn,out,"MFIX POS\nUSB PRINTER TEST\n\n".getBytes("UTF-8"));
-            write(conn,out,new byte[]{0x1b,0x64,0x03,0x1d,0x56,0x42,0x00});
-            toast("דף בדיקה נשלח למדפסת");
-        } catch (Exception e) { toast("שגיאת בדיקה: "+e.getMessage()); }
-        finally { if (chosen!=null) try { conn.releaseInterface(chosen); } catch(Exception ignored) {} conn.close(); }
+        byte[] text = "MFIX POS\nUSB PRINTER TEST\n\n".getBytes(StandardCharsets.UTF_8);
+        byte[] init = new byte[]{0x1b,0x40,0x1b,0x61,0x01};
+        byte[] feedCut = new byte[]{0x1b,0x64,0x03,0x1d,0x56,0x42,0x00};
+        byte[] all = new byte[init.length + text.length + feedCut.length];
+        System.arraycopy(init,0,all,0,init.length); System.arraycopy(text,0,all,init.length,text.length); System.arraycopy(feedCut,0,all,init.length+text.length,feedCut.length);
+        sendRawToDevice(device, all, true);
     }
 
     private void printToDevice(UsbDevice device, byte[] raster, int bytesPerLine, int height) {
@@ -175,15 +189,11 @@ public class MainActivity extends Activity {
         if (conn == null) { toast("לא ניתן לפתוח את מדפסת ה-USB"); return; }
         UsbInterface chosen=null; UsbEndpoint out=null;
         try {
-            outer: for (int i=0;i<device.getInterfaceCount();i++) {
-                UsbInterface intf=device.getInterface(i);
-                for (int e=0;e<intf.getEndpointCount();e++) {
-                    UsbEndpoint ep=intf.getEndpoint(e);
-                    if (ep.getDirection()==UsbConstants.USB_DIR_OUT && ep.getType()==UsbConstants.USB_ENDPOINT_XFER_BULK) { chosen=intf; out=ep; break outer; }
-                }
-            }
-            if (chosen==null || out==null || !conn.claimInterface(chosen,true)) { toast("לא נמצאה יציאת הדפסה USB"); return; }
-            write(conn,out,new byte[]{0x1b,0x40,0x1b,0x61,0x00,0x1b,0x32});
+            UsbEndpoint[] pair = findBulkOutEndpoint(device);
+            if (pair == null) { toast("לא נמצאה יציאת הדפסה USB"); return; }
+            chosen = endpointInterface(device, pair[0]); out = pair[0];
+            if (chosen==null || !conn.claimInterface(chosen,true)) { toast("לא ניתן לתפוס את ממשק מדפסת ה-USB"); return; }
+            writeAll(conn,out,new byte[]{0x1b,0x40,0x1b,0x61,0x00,0x1b,0x32});
             int xL=bytesPerLine & 255, xH=(bytesPerLine>>8)&255;
             final int MAX_ROWS=180;
             for (int row=0; row<height; row+=MAX_ROWS) {
@@ -193,17 +203,52 @@ public class MainActivity extends Activity {
                 packet[0]=0x1d; packet[1]=0x76; packet[2]=0x30; packet[3]=0x00;
                 packet[4]=(byte)xL; packet[5]=(byte)xH; packet[6]=(byte)yL; packet[7]=(byte)yH;
                 System.arraycopy(raster,row*bytesPerLine,packet,8,rows*bytesPerLine);
-                write(conn,out,packet);
+                writeAll(conn,out,packet);
             }
-            write(conn,out,new byte[]{0x1b,0x64,0x03,0x1d,0x56,0x42,0x00});
+            writeAll(conn,out,new byte[]{0x1b,0x64,0x03,0x1d,0x56,0x42,0x00});
             toast("ההדפסה נשלחה למדפסת");
         } catch (Exception e) { toast("שגיאת הדפסה: "+e.getMessage()); }
         finally { if (chosen!=null) try { conn.releaseInterface(chosen); } catch(Exception ignored) {} conn.close(); }
     }
 
-    private void write(UsbDeviceConnection conn, UsbEndpoint ep, byte[] data) throws Exception {
-        int sent = conn.bulkTransfer(ep, data, data.length, 15000);
-        if (sent != data.length) throw new Exception("USB נשלחו "+sent+" מתוך "+data.length+" בתים");
+    private void sendRawToDevice(UsbDevice device, byte[] data, boolean showSuccess) {
+        UsbDeviceConnection conn = usbManager.openDevice(device);
+        if (conn == null) { toast("לא ניתן לפתוח את מדפסת ה-USB"); return; }
+        UsbInterface chosen=null;
+        try {
+            UsbEndpoint[] pair=findBulkOutEndpoint(device);
+            if(pair==null){toast("לא נמצאה יציאת הדפסה USB");return;}
+            chosen=endpointInterface(device,pair[0]);
+            if(chosen==null || !conn.claimInterface(chosen,true)){toast("לא ניתן לתפוס את ממשק מדפסת ה-USB");return;}
+            writeAll(conn,pair[0],data);
+            if(showSuccess) toast("הפעולה נשלחה למדפסת");
+        } catch(Exception e){toast("שגיאת USB: "+e.getMessage());}
+        finally{if(chosen!=null)try{conn.releaseInterface(chosen);}catch(Exception ignored){} conn.close();}
+    }
+
+    private UsbEndpoint[] findBulkOutEndpoint(UsbDevice device) {
+        for(int i=0;i<device.getInterfaceCount();i++){
+            UsbInterface intf=device.getInterface(i);
+            for(int e=0;e<intf.getEndpointCount();e++){
+                UsbEndpoint ep=intf.getEndpoint(e);
+                if(ep.getDirection()==UsbConstants.USB_DIR_OUT && ep.getType()==UsbConstants.USB_ENDPOINT_XFER_BULK) return new UsbEndpoint[]{ep};
+            }
+        }
+        return null;
+    }
+    private UsbInterface endpointInterface(UsbDevice device, UsbEndpoint target){
+        for(int i=0;i<device.getInterfaceCount();i++){UsbInterface intf=device.getInterface(i);for(int e=0;e<intf.getEndpointCount();e++)if(intf.getEndpoint(e)==target)return intf;} return null;
+    }
+
+    private void writeAll(UsbDeviceConnection conn, UsbEndpoint ep, byte[] data) throws Exception {
+        int offset=0;
+        while(offset<data.length){
+            int len=Math.min(16384,data.length-offset);
+            byte[] chunk=Arrays.copyOfRange(data,offset,offset+len);
+            int sent=conn.bulkTransfer(ep,chunk,chunk.length,15000);
+            if(sent<=0) throw new Exception("USB לא שלח נתונים");
+            offset+=sent;
+        }
     }
 
     private String escapeJson(String s) { return s.replace("\\", "\\\\").replace("\"", "\\\""); }
