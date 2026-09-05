@@ -3689,6 +3689,7 @@ function updateShiftDiff(expected){
 }
 async function openShift(){
   const openingCash = Number(document.getElementById('shiftOpenCash').value)||0;
+  if(STATE.settings.rolesEnabled && STATE.currentRole!=='manager'){ toast('פתיחת משמרת דורשת הרשאת מנהל','err'); return; }
   const shift = {id:uid('shift'), openedAt:todayISO(), closedAt:null, openingCash, closingCashCounted:null, expectedCash:null, difference:null, status:'open', openedBy:STATE.currentRole};
   STATE.shifts.push(shift);
   STATE.currentShift = shift;
@@ -3697,6 +3698,7 @@ async function openShift(){
   closeModal(); render(); toast('המשמרת נפתחה','ok');
 }
 async function closeShift(expectedCash){
+  if(STATE.settings.rolesEnabled && STATE.currentRole!=='manager'){ toast('סגירת משמרת דורשת הרשאת מנהל','err'); return; }
   const counted = Number(document.getElementById('shiftCountedCash').value)||0;
   const shift = STATE.currentShift;
   shift.closedAt = todayISO();
@@ -3712,7 +3714,9 @@ async function closeShift(expectedCash){
   shift.itemsSold = itemizedBreakdown(shift.openedAt, shift.closedAt);
   STATE.currentShift = null;
   await persist('shifts');
-  logAudit('סגירת משמרת', `הפרש קופה: ${money(shift.difference)}`);
+  const diffNote=shift.difference===0?'ללא הפרש':(shift.difference>0?'עודף בקופה ':'חוסר בקופה ')+money(Math.abs(shift.difference));
+  logAudit('סגירת משמרת', `הפרש קופה: ${money(shift.difference)} | ${diffNote}`);
+  await persist('auditLog');
   closeModal(); render(); toast('המשמרת נסגרה','ok');
   printZReport(shift);
 }
