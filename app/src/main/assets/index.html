@@ -1817,6 +1817,7 @@ function renderInventory(){
     <div style="flex:1;"></div>
     <input id="inventoryImportFile" type="file" accept=".csv,.tsv,.txt,.xlsx,.xls" style="display:none" onchange="handleInventoryImportFile(this.files && this.files[0]); this.value='';">
     <button class="btn btn-ghost" onclick="openInventoryImport()">📥 ייבוא מלאי Excel / CSV</button>
+    <button class="btn btn-outline" onclick="openStockAdjustmentModal()">± עדכון מלאי</button>
     <button class="btn btn-primary" onclick="openProductModal()">+ מוצר חדש</button>
   </div>
   <div class="card">
@@ -2190,6 +2191,29 @@ async function commitInventoryImport(){
   toast(`ייבוא הסתיים: ${added} חדשים, ${updated} עודכנו${units?`, ${units} יחידות IMEI/סריאל`:''}${skipped?`, ${skipped} דולגו`:''}${errors?`, ${errors} שגיאות`:''}`,'ok');
 }
 
+function openStockAdjustmentModal(){
+  const products=STATE.products.filter(p=>!p.trackSerial);
+  openModal(`
+    <div class="modal-head"><h3>± עדכון מלאי מהיר</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
+    <div class="modal-body">
+      <div class="field"><label class="flabel">מוצר</label><select class="input" id="sa_product"><option value="">בחר מוצר</option>${products.map(p=>`<option value="${p.id}">${esc(p.name)} (מלאי: ${p.stock||0})</option>`).join('')}</select></div>
+      <div class="grid2"><div class="field"><label class="flabel">פעולה</label><select class="input" id="sa_mode"><option value="add">הוספת כמות</option><option value="remove">הפחתת כמות</option><option value="set">קביעת מלאי מדויק</option></select></div><div class="field"><label class="flabel">כמות</label><input class="input" id="sa_qty" type="number" min="0" value="1"></div></div>
+      <div class="field"><label class="flabel">הערה (אופציונלי)</label><input class="input" id="sa_note" placeholder="למשל קבלת סחורה / ספירה"></div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal()">ביטול</button><button class="btn btn-primary" onclick="saveStockAdjustment()">שמור עדכון</button></div>
+  `);
+}
+async function saveStockAdjustment(){
+  const p=getProduct(document.getElementById('sa_product').value);
+  const qty=Math.max(0,Number(document.getElementById('sa_qty').value)||0);
+  const mode=document.getElementById('sa_mode').value;
+  if(!p){toast('יש לבחור מוצר','err');return;}
+  const old=Number(p.stock||0);
+  p.stock=mode==='add'?old+qty:mode==='remove'?Math.max(0,old-qty):qty;
+  p.stockHistory=p.stockHistory||[];
+  p.stockHistory.unshift({date:new Date().toISOString(),mode,qty,oldStock:old,newStock:p.stock,note:document.getElementById('sa_note').value.trim()});
+  await persist('products'); closeModal(); render(); toast('המלאי עודכן מ-'+old+' ל-'+p.stock,'ok');
+}
 function openProductModal(productId){
   const p = productId ? getProduct(productId) : null;
   const cats = [...new Set(STATE.products.map(x=>x.category||'כללי'))];
