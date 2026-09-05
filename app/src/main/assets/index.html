@@ -1856,8 +1856,9 @@ async function printDoc(saleId){
   }
 
   try{
-    await mfixDirectUsbPrint(receipt);
-    toast('הקבלה נשלחה למדפסת','ok');
+    const copies=Math.max(1,Number(STATE.settings.printerCopies)||1);
+    for(let i=0;i<copies;i++) await mfixDirectUsbPrint(receipt);
+    toast('הקבלה נשלחה למדפסת'+(copies>1?' ('+copies+' עותקים)':''),'ok');
   }catch(e){
     console.error('[MFIX USB PRINT]',e);
     alert('הדפסה ישירה לא בוצעה:\\n\\n'+(e?.message||e)+'\\n\\nבפעם הראשונה יש לבחור את מדפסת Xprinter בחלון ה-USB של Chrome.');
@@ -3115,7 +3116,7 @@ async function savePrinterProfile(id){
   STATE.settings.printers=list; if(!STATE.settings.defaultPrinterId)STATE.settings.defaultPrinterId=item.id;
   await persist('settings'); closeModal(); render(); toast('פרופיל המדפסת נשמר','ok');
 }
-async function deletePrinterProfile(id){ if(!confirm('למחוק את המדפסת?'))return; STATE.settings.printers=(STATE.settings.printers||[]).filter(p=>p.id!==id); if(STATE.settings.defaultPrinterId===id)STATE.settings.defaultPrinterId=''; await persist('settings'); render(); toast('המדפסת נמחקה','ok'); }
+async function deletePrinterProfile(id){ if(!canManage()){toast('מחיקת מדפסת דורשת הרשאת מנהל','err');return;} if(!confirm('למחוק את המדפסת?'))return; const p=(STATE.settings.printers||[]).find(x=>x.id===id); STATE.settings.printers=(STATE.settings.printers||[]).filter(p=>p.id!==id); if(STATE.settings.defaultPrinterId===id)STATE.settings.defaultPrinterId=''; await persist('settings'); logAudit('מחיקת מדפסת',p?.name||id); await persist('auditLog'); render(); toast('המדפסת נמחקה','ok'); }
 async function testDefaultPrinter(){
   const id=document.getElementById('st_defaultprinter')?.value||STATE.settings.defaultPrinterId;
   const p=(STATE.settings.printers||[]).find(x=>x.id===id);
@@ -3128,7 +3129,7 @@ async function testDefaultPrinter(){
     }
     if(p.type==='USB'&&typeof mfixGetUsbPrinter==='function'){
       await mfixGetUsbPrinter();
-      toast('חיבור USB נבחר בהצלחה. בדיקה פיזית זמינה ב-APK Native.','ok');
+      toast('מדפסת USB נבחרה בהצלחה. לא הודפס דף בדיקה — אין אישור שההדפסה הפיזית הצליחה.','ok');
       return;
     }
     toast('אין עדיין מנוע הדפסה בפועל עבור '+p.type+'. USB נתמך ישירות בגרסת Android.','err');
