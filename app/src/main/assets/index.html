@@ -4127,9 +4127,18 @@ async function processReturn(saleId){
     if(qty>0) items.push({productId:it.productId, name:it.name, qty, unitPrice:it.unitPrice, imei:it.imei||''});
   });
   if(!items.length){ toast('לא נבחרו פריטים להחזרה','err'); return; }
+  // Revalidate against previous returns immediately before mutating stock.
+  for(const [idx,it] of sale.items.entries()){
+    const requested=Number(returnSelections[idx]||0);
+    if(requested<=0) continue;
+    const already=returnedQty(sale.id,idx);
+    const max=Math.max(0,Number(it.qty||0)-already);
+    if(requested>max+0.0001){ toast('הכמות להחזרה עבור "'+it.name+'" השתנתה. ניתן להחזיר עד '+max,'err'); return; }
+  }
   const refundTotal = round2(items.reduce((a,it)=>a+it.qty*it.unitPrice,0));
   const refundMethod = document.getElementById('refundMethodSelect').value;
-  const ret = {id:uid('ret'), number: STATE.settings.repairCounter ? (STATE.returns.length+1) : 1, date:todayISO(), originalSaleId:sale.id, items, refundTotal, refundMethod, processedBy:STATE.currentRole};
+  if(!['cash','credit','giftcard','bank'].includes(refundMethod)){ toast('יש לבחור אמצעי זיכוי תקין','err'); return; }
+  const ret = {id:uid('ret'), number: (STATE.returns.length+1), date:todayISO(), originalSaleId:sale.id, items, refundTotal, refundMethod, processedBy:STATE.currentRole};
   // restock with audit history
   for(const it of items){
     const p = getProduct(it.productId);
@@ -4159,7 +4168,8 @@ async function processReturn(saleId){
   }
   STATE.returns.push(ret);
   await persist('returns'); await persist('products');
-  logAudit('החזרה/זיכוי', `מסמך מקורי #${sale.number}, סכום זיכוי ${money(refundTotal)}`);
+  logAudit('החזרה/זיכוי', `מסמך מקורי #${sale.number}, סכום זיכוי ${money(refundTotal)} | אמצעי: ${refundMethod}`);
+  await persist('auditLog');
   closeModal(); render();
   toast('ההחזרה בוצעה בהצלחה','ok');
   printCreditNote(ret, sale);
