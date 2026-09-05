@@ -433,7 +433,7 @@ async function loadAll(){
    which is both faster and far less likely to hit any write-rate limits. */
 const saveTimers = {};
 const pendingSync = {};
-function scheduleSave(key, valueGetter, part){
+async function scheduleSave(key, valueGetter, part){
   return new Promise(resolve=>{
     if(saveTimers[key]) clearTimeout(saveTimers[key].t);
     saveTimers[key] = {
@@ -3056,7 +3056,7 @@ async function saveBusinessSettings(){
   });
   await persist('settings'); render(); toast('פרטי העסק נשמרו','ok');
 }
-function onLogoFileSelected(evt){
+async function onLogoFileSelected(evt){
   const file = evt.target.files[0];
   if(!file) return;
   const reader = new FileReader();
@@ -3127,7 +3127,7 @@ async function syncSaleToYeshInvoice(sale){
     return null;
   }
 }
-function saveNumberingSettings(){
+async function saveNumberingSettings(){
   Object.assign(STATE.settings, {
     vatRate:Number(document.getElementById('st_vat').value)||18,
     invoiceCounter:Number(document.getElementById('st_invcounter').value)||1000,
