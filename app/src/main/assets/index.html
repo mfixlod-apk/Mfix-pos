@@ -850,7 +850,10 @@ async function deleteParkedSale(id){
   STATE.preorders=STATE.preorders.filter(x=>x.id!==id);
   await persistMisc(); logAudit('מחיקת מכירה מושהית',p.note||p.id); await persist('auditLog'); openParkedSalesModal(); renderCart(); toast('המכירה המושהית נמחקה','ok');
 }
-function clearCart(){ STATE.cart=[]; STATE.cartDiscount=null; STATE.cartCustomerId=null; STATE.linkedRepairId=null; STATE.docCustomerName=''; STATE.docCustomerPhone=''; STATE.pointsToRedeem=0; renderCart(); }
+function clearCart(){
+  if(!STATE.cart.length){ return; }
+  STATE.cart=[]; STATE.cartDiscount=null; STATE.cartCustomerId=null; STATE.linkedRepairId=null; STATE.docCustomerName=''; STATE.docCustomerPhone=''; STATE.pointsToRedeem=0; renderCart();
+}
 
 /* ---- Payment modal ---- */
 let paymentRows = [];
