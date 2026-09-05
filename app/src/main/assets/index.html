@@ -843,11 +843,12 @@ async function resumeParkedSale(id){
   await persistMisc(); closeModal(); renderCart(); toast('המכירה שוחזרה לעגלה','ok');
 }
 async function deleteParkedSale(id){
+  if(!canManage()){ toast('מחיקת מכירה מושהית דורשת הרשאת מנהל','err'); return; }
   const p=(STATE.preorders||[]).find(x=>x.id===id&&x.status==='parked');
   if(!p)return;
   if(!confirm('למחוק את המכירה המושהית? פעולה זו לא ניתנת לשחזור.')) return;
   STATE.preorders=STATE.preorders.filter(x=>x.id!==id);
-  await persistMisc(); openParkedSalesModal(); renderCart(); toast('המכירה המושהית נמחקה','ok');
+  await persistMisc(); logAudit('מחיקת מכירה מושהית',p.note||p.id); await persist('auditLog'); openParkedSalesModal(); renderCart(); toast('המכירה המושהית נמחקה','ok');
 }
 function clearCart(){ STATE.cart=[]; STATE.cartDiscount=null; STATE.cartCustomerId=null; STATE.linkedRepairId=null; STATE.docCustomerName=''; STATE.docCustomerPhone=''; STATE.pointsToRedeem=0; renderCart(); }
 
@@ -2418,9 +2419,15 @@ async function saveProduct(productId){
   await persist('products'); closeModal(); render(); toast('המוצר נשמר בהצלחה','ok');
 }
 async function deleteProduct(productId){
+  if(!canManage()){ toast('מחיקת מוצר דורשת הרשאת מנהל','err'); return; }
+  const p=getProduct(productId); if(!p) return;
+  const usedInSales=STATE.sales.some(s=>(s.items||[]).some(i=>i.productId===productId));
+  if(usedInSales){ toast('לא ניתן למחוק מוצר עם היסטוריית מכירות. ניתן להשאיר אותו ללא מלאי או לערוך אותו.','err'); return; }
   if(!confirm('למחוק את המוצר לצמיתות?')) return;
   STATE.products = STATE.products.filter(p=>p.id!==productId);
-  await persist('products'); render();
+  STATE.inventoryHistory=(STATE.inventoryHistory||[]).filter(h=>h.productId!==productId);
+  await Promise.all([persist('products'),persist('inventoryHistory')]);
+  logAudit('מחיקת מוצר',p.name||productId); await persist('auditLog'); render();
 }
 
 /* ===================== REPAIRS ===================== */
@@ -2763,9 +2770,13 @@ async function saveCustomer(customerId){
   await persist('customers'); closeModal(); render(); toast('הלקוח נשמר','ok');
 }
 async function deleteCustomer(customerId){
+  if(!canManage()){ toast('מחיקת לקוח דורשת הרשאת מנהל','err'); return; }
+  const customer=getCustomer(customerId); if(!customer) return;
+  const linked=STATE.sales.some(s=>s.customerId===customerId)||STATE.repairs.some(r=>r.customerId===customerId);
+  if(linked){ toast('לא ניתן למחוק לקוח עם היסטוריית מכירות או תיקונים','err'); return; }
   if(!confirm('למחוק לקוח זה?')) return;
   STATE.customers = STATE.customers.filter(c=>c.id!==customerId);
-  await persist('customers'); render();
+  await persist('customers'); logAudit('מחיקת לקוח',customer.name||customerId); await persist('auditLog'); render();
 }
 function openCustomerDetail(customerId){
   const c = getCustomer(customerId);
