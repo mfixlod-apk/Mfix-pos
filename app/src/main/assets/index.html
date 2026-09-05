@@ -3140,7 +3140,7 @@ async function saveNumberingSettings(){
 function renderPrinterProfilesWrap(){
   const wrap=document.getElementById('printerProfilesWrap'); if(!wrap)return;
   const printers=STATE.settings.printers||[];
-  wrap.innerHTML=printers.length?'<table class="tbl"><thead><tr><th>שם</th><th>חיבור</th><th>כתובת/מזהה</th><th>פעולות</th></tr></thead><tbody>'+printers.map(p=>'<tr><td><b>'+esc(p.name)+'</b>'+(STATE.settings.defaultPrinterId===p.id?' <span class="pill green">ברירת מחדל</span>':'')+'</td><td>'+esc(p.type)+'</td><td dir="ltr">'+esc(p.address||'—')+'</td><td><button class="btn btn-ghost" onclick="openPrinterProfileModal(\\''+p.id+'\\')">ערוך</button> <button class="btn btn-red" onclick="deletePrinterProfile(\\''+p.id+'\\')">מחק</button></td></tr>').join('')+'</tbody></table>':'<div class="empty-state" style="padding:20px">🖨️ עדיין לא הוגדרה מדפסת</div>';
+  wrap.innerHTML=printers.length?'<table class="tbl"><thead><tr><th>שם</th><th>חיבור</th><th>כתובת/מזהה</th><th>פעולות</th></tr></thead><tbody>'+printers.map(p=>'<tr><td><b>'+esc(p.name)+'</b>'+(STATE.settings.defaultPrinterId===p.id?' <span class="pill green">ברירת מחדל</span>':'')+'</td><td>'+esc(p.type)+'</td><td dir="ltr">'+esc(p.address||'—')+'</td><td><button class="btn btn-ghost" onclick="openPrinterProfileModal('+JSON.stringify(p.id)+')">ערוך</button> <button class="btn btn-red" onclick="deletePrinterProfile('+JSON.stringify(p.id)+')">מחק</button></td></tr>').join('')+'</tbody></table>':'<div class="empty-state" style="padding:20px">🖨️ עדיין לא הוגדרה מדפסת</div>';
 }
 function mfixNativeUsbPrinters(){
   try{
