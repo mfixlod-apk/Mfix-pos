@@ -1026,6 +1026,27 @@ async function finalizeSale(){
   const calc = calcWithRedeem();
   const paid = round2(paymentRows.reduce((a,r)=>a+(Number(r.amount)||0),0));
   if(paid < calc.totalIncl - 0.01){ toast('הסכום ששולם נמוך מהסכום לתשלום','err'); return; }
+
+  // Final stock validation: prevents checkout when another sale/edit changed inventory while cart was open.
+  for(const l of calc.lines){
+    if(l.isGiftCardSale || l.linkedPreorderId || l.isPart) continue;
+    const p=getProduct(l.productId);
+    if(!p){ toast('המוצר "'+l.name+'" כבר לא קיים במלאי','err'); return; }
+    if(p.trackSerial){
+      const unit=(p.imeis||[]).find(i=>i.imei1===l.imei && i.status==='available');
+      if(!unit){ toast('יחידת IMEI עבור "'+l.name+'" אינה זמינה יותר. רעננו את העגלה.','err'); return; }
+    }else if((Number(p.stock)||0) < Number(l.qty||0)){
+      toast('אין מספיק מלאי עבור "'+l.name+'". זמין: '+(Number(p.stock)||0),'err'); return;
+    }
+  }
+
+  // Change may only be returned against cash paid in this checkout.
+  const change=round2(paid-calc.totalIncl);
+  const cashPaid=round2(paymentRows.filter(r=>r.method==='cash').reduce((a,r)=>a+(Number(r.amount)||0),0));
+  if(change>cashPaid+0.01){
+    toast('העודף גדול מהמזומן ששולם. לא ניתן לתת עודף מתשלום באשראי/שובר.','err'); return;
+  }
+
   // validate gift card payments before finalizing anything
   for(const r of paymentRows){
     if(r.method==='giftcard'){
