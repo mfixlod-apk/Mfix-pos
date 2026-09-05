@@ -395,7 +395,12 @@ function defaultSettings(){
     defaultPrinterId:'',
     printerAutoPrint:true,
     printerCopies:1,
-    printerPaperWidth:'80mm'
+    printerPaperWidth:'80mm',
+    yeshInvoiceEnabled:false,
+    yeshInvoiceEndpoint:'',
+    yeshInvoiceApiKey:'',
+    yeshInvoiceDocumentType:9,
+    yeshInvoiceSyncMode:'manual'
   };
 }
 
@@ -1155,6 +1160,7 @@ async function finalizeSale(){
   if(isInvoice) STATE.settings.invoiceCounter++; else STATE.settings.receiptCounter++;
   await persist('sales'); await persist('products'); await persist('settings');
   logAudit('מכירה', `מסמך #${number}, סכום ${money(sale.total)}`);
+  if(STATE.settings.yeshInvoiceEnabled && STATE.settings.yeshInvoiceSyncMode==='auto') await syncSaleToYeshInvoice(sale);
   closeModal();
   clearCart();
   toast('המכירה בוצעה בהצלחה! מסמך מס\' '+number,'ok');
@@ -2824,6 +2830,21 @@ function renderSettings(){
     </div>
 
     <div class="card">
+      <div class="section-title">🧾 יש חשבונית — אינטגרציה</div>
+      <div class="muted" style="font-size:12px;margin-bottom:10px;">החיבור דורש Endpoint/Proxy תקין שמוגדר אצלך. המערכת לא מנחשת כתובת API ולא שולחת נתונים ללא הגדרה מפורשת.</div>
+      <label class="check-row"><input type="checkbox" id="st_yeshenabled" ${s.yeshInvoiceEnabled?'checked':''}> הפעל אינטגרציית יש חשבונית</label>
+      <div class="grid2" style="margin-top:10px;">
+        <div class="field"><label class="flabel">API / Proxy Endpoint</label><input class="input" id="st_yeshendpoint" value="${esc(s.yeshInvoiceEndpoint||'')}" placeholder="https://..."></div>
+        <div class="field"><label class="flabel">API Key</label><input class="input" id="st_yeshkey" type="password" value="${esc(s.yeshInvoiceApiKey||'')}" placeholder="מפתח API"></div>
+      </div>
+      <div class="grid2">
+        <div class="field"><label class="flabel">סוג מסמך</label><input class="input" type="number" id="st_yeshdoctype" value="${Number(s.yeshInvoiceDocumentType)||9}"></div>
+        <div class="field"><label class="flabel">מצב סנכרון</label><select class="input" id="st_yeshsync"><option value="manual" ${s.yeshInvoiceSyncMode==='manual'?'selected':''}>ידני בלבד</option><option value="auto" ${s.yeshInvoiceSyncMode==='auto'?'selected':''}>אוטומטי אחרי מכירה</option></select></div>
+      </div>
+      <button class="btn btn-primary" onclick="saveYeshInvoiceSettings()">💾 שמור הגדרות יש חשבונית</button>
+    </div>
+
+    <div class="card">
       <div class="section-title">🧾 מספור מסמכים ומע"מ</div>
       <div class="grid3">
         <div class="field"><label class="flabel">אחוז מע"מ</label><input class="input" type="number" id="st_vat" value="${s.vatRate}"></div>
@@ -3000,7 +3021,35 @@ async function removeLogo(){
   STATE.settings.logoDataUrl = '';
   await persist('settings'); render(); toast('הלוגו הוסר','ok');
 }
-async function saveNumberingSettings(){
+async async function saveYeshInvoiceSettings(){
+  STATE.settings.yeshInvoiceEnabled=document.getElementById('st_yeshenabled').checked;
+  STATE.settings.yeshInvoiceEndpoint=document.getElementById('st_yeshendpoint').value.trim();
+  STATE.settings.yeshInvoiceApiKey=document.getElementById('st_yeshkey').value.trim();
+  STATE.settings.yeshInvoiceDocumentType=Number(document.getElementById('st_yeshdoctype').value)||9;
+  STATE.settings.yeshInvoiceSyncMode=document.getElementById('st_yeshsync').value;
+  if(STATE.settings.yeshInvoiceEnabled && !STATE.settings.yeshInvoiceEndpoint){ toast('יש להזין Endpoint לפני הפעלת האינטגרציה','err'); return; }
+  await persist('settings'); toast('הגדרות יש חשבונית נשמרו','ok');
+}
+async function syncSaleToYeshInvoice(sale){
+  const s=STATE.settings;
+  if(!s.yeshInvoiceEnabled || !s.yeshInvoiceEndpoint) return {skipped:true};
+  const payload={source:'MFIX-POS',documentType:Number(s.yeshInvoiceDocumentType)||9,sale};
+  try{
+    const headers={'Content-Type':'application/json'};
+    if(s.yeshInvoiceApiKey) headers.Authorization='Bearer '+s.yeshInvoiceApiKey;
+    const res=await fetch(s.yeshInvoiceEndpoint,{method:'POST',headers,body:JSON.stringify(payload)});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const data=await res.json().catch(()=>({}));
+    sale.yeshInvoice={status:'synced',syncedAt:new Date().toISOString(),responseId:data.id||data.documentId||data.number||null};
+    await persist('sales'); logAudit('סנכרון יש חשבונית','מסמך #'+sale.number+' סונכרן'); await persist('auditLog');
+    return data;
+  }catch(e){
+    sale.yeshInvoice={status:'failed',lastError:String(e.message||e),lastAttemptAt:new Date().toISOString()};
+    await persist('sales'); logAudit('כשל סנכרון יש חשבונית','מסמך #'+sale.number+': '+String(e.message||e)); await persist('auditLog');
+    return null;
+  }
+}
+function saveNumberingSettings(){
   Object.assign(STATE.settings, {
     vatRate:Number(document.getElementById('st_vat').value)||18,
     invoiceCounter:Number(document.getElementById('st_invcounter').value)||1000,
