@@ -2005,12 +2005,22 @@ function openAddImeiModal(productId){
     <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal()">ביטול</button><button class="btn btn-primary" onclick="saveNewImei('${productId}')">שמור</button></div>
   `);
 }
+function normalizeImei(value){ return String(value||'').replace(/[^0-9]/g,''); }
+function isValidImei(value){
+  const s=normalizeImei(value); if(!/^\d{15}$/.test(s)) return false;
+  let sum=0;
+  for(let i=0;i<15;i++){ let d=Number(s[14-i]); if(i%2===1){ d*=2; if(d>9)d-=9; } sum+=d; }
+  return sum%10===0;
+}
 async function saveNewImei(productId){
+  if(!canManage()){toast('הוספת יחידת IMEI דורשת הרשאת מנהל','err');return;}
   const p = getProduct(productId);
   const serial = document.getElementById('newSerial').value.trim();
-  const imei1 = document.getElementById('newImei1').value.trim();
-  const imei2 = document.getElementById('newImei2').value.trim();
+  const imei1 = normalizeImei(document.getElementById('newImei1').value);
+  const imei2 = normalizeImei(document.getElementById('newImei2').value);
+  if(!p){toast('המוצר לא נמצא','err');return;}
   if(!serial || !imei1){ toast('יש למלא סריאל ו-IMEI 1','err'); return; }
+  if(!isValidImei(imei1) || (imei2 && !isValidImei(imei2))){ toast('IMEI חייב להיות מספר תקין בן 15 ספרות','err'); return; }
   // duplicate check across the entire inventory, not just this product — prevents accidental double-entry
   for(const prod of STATE.products){
     if(!prod.trackSerial) continue;
@@ -2021,9 +2031,11 @@ async function saveNewImei(productId){
   p.imeis.push({id:uid('imei'), serial, imei1, imei2, status:'available'});
   await persist('products');
   await addInventoryHistory(productId,'הוספת יחידה סריאלית',1,before,before+1,'Serial: '+serial+' | IMEI: '+imei1);
+  logAudit('הוספת יחידת IMEI',p.name+' | Serial: '+serial+' | IMEI: '+imei1); await persist('auditLog');
   closeModal(); renderInvTable(); toast('היחידה נוספה למלאי','ok');
 }
 async function removeImeiUnit(productId, imeiId){
+  if(!canManage()){toast('הסרת יחידת IMEI דורשת הרשאת מנהל','err');return;}
   const p = getProduct(productId);
   const row=(p.imeis||[]).find(i=>i.id===imeiId);
   if(!row || row.status!=='available'){ toast('ניתן להסיר רק יחידה זמינה שלא נמכרה','err'); return; }
@@ -2032,6 +2044,7 @@ async function removeImeiUnit(productId, imeiId){
   p.imeis = p.imeis.filter(i=>i.id!==imeiId);
   await persist('products');
   await addInventoryHistory(productId,'הסרת יחידה סריאלית',-1,before,before-1,'Serial: '+row.serial+' | IMEI: '+row.imei1);
+  logAudit('הסרת יחידת IMEI',p.name+' | Serial: '+row.serial+' | IMEI: '+row.imei1); await persist('auditLog');
   renderInvTable();
 }
 
