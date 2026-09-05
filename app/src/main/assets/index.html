@@ -3098,12 +3098,17 @@ function openPromoModal(){
 }
 
 function exportBackup(){
-  const data = {settings:STATE.settings, products:STATE.products, customers:STATE.customers, sales:STATE.sales, repairs:STATE.repairs, exportedAt:todayISO()};
+  const data = {
+    format:'MFIX-POS-BACKUP', version:'1.1', exportedAt:new Date().toISOString(),
+    settings:STATE.settings, products:STATE.products, customers:STATE.customers,
+    sales:STATE.sales, repairs:STATE.repairs, returns:STATE.returns||[],
+    preorders:STATE.preorders||[], giftCards:STATE.giftCards||[],
+    auditLog:STATE.auditLog||[]
+  };
   const blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'cellular-pos-backup-'+new Date().toISOString().slice(0,10)+'.json';
-  a.click();
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'mfix-pos-backup-'+new Date().toISOString().slice(0,10)+'.json'; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
 }
 function importBackup(evt){
   const file = evt.target.files[0];
@@ -3112,13 +3117,18 @@ function importBackup(evt){
   reader.onload = async ()=>{
     try{
       const data = JSON.parse(reader.result);
+      if(data.format && data.format!=='MFIX-POS-BACKUP') throw new Error('format');
       if(!confirm('ייבוא גיבוי יחליף את כל הנתונים הקיימים. להמשיך?')) return;
       STATE.settings = data.settings || STATE.settings;
       STATE.products = data.products || STATE.products;
       STATE.customers = data.customers || STATE.customers;
       STATE.sales = data.sales || STATE.sales;
       STATE.repairs = data.repairs || STATE.repairs;
-      await Promise.all(['settings','products','customers','sales','repairs'].map(persist));
+      STATE.returns = data.returns || STATE.returns || [];
+      STATE.preorders = data.preorders || STATE.preorders || [];
+      STATE.giftCards = data.giftCards || STATE.giftCards || [];
+      STATE.auditLog = data.auditLog || STATE.auditLog || [];
+      await Promise.all(['settings','products','customers','sales','repairs','returns','preorders','giftCards','auditLog'].map(persist));
       render(); toast('הגיבוי יובא בהצלחה','ok');
     }catch(e){ toast('קובץ הגיבוי אינו תקין','err'); }
   };
