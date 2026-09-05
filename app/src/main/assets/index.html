@@ -817,11 +817,13 @@ function openCartDiscountModal(){
   openModal(`<div class="modal-head"><h3>🏷️ הנחה על העגלה</h3><button class="modal-close" onclick="closeModal()">✕</button></div><div class="modal-body"><div class="grid2"><div class="field"><label class="flabel">סוג</label><select class="input" id="cd_type"><option value="percent">אחוזים (%)</option><option value="amount">סכום (₪)</option></select></div><div class="field"><label class="flabel">ערך</label><input class="input" id="cd_value" type="number" min="0" value="0"></div></div><div class="muted">סה"כ לפני הנחה: ${money(calc.totalIncl)}</div></div><div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal()">ביטול</button><button class="btn btn-primary" onclick="applyCartDiscount()">החל הנחה</button></div>`);
 }
 function applyCartDiscount(){
+  if(STATE.settings.rolesEnabled && !canManage()){toast('הנחה ידנית דורשת הרשאת מנהל','err');return;}
   const type=document.getElementById('cd_type').value, value=Math.max(0,Number(document.getElementById('cd_value').value)||0);
   if(!STATE.cart.length||value<=0){toast('הזן ערך הנחה תקין','err');return;}
   const subtotal=STATE.cart.reduce((a,l)=>a+Number(l.unitPrice||0)*Number(l.qty||1),0);
   let discount=type==='percent'?subtotal*Math.min(value,100)/100:Math.min(value,subtotal);
   STATE.cartDiscount={type,value,amount:round2(discount)};
+  logAudit('הנחה ידנית בעגלה',type==='percent'?value+'%':money(value)); persist('auditLog');
   closeModal(); renderCart(); toast('ההנחה הוחלה על העגלה','ok');
 }
 function openParkSaleModal(){
