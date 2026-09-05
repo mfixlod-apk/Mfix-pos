@@ -790,6 +790,7 @@ function renderCart(){
       <button class="btn btn-outline btn-block" onclick="openCartDiscountModal()">🏷️ הנחה</button>
       <button class="btn btn-outline btn-block" onclick="openParkSaleModal()">⏸️ השהה מכירה</button>
     </div>
+    <button class="btn btn-ghost btn-block" style="margin-top:8px;" onclick="openParkedSalesModal()">📂 מכירות מושהות</button>
     <button class="btn btn-primary btn-block btn-lg" style="margin-top:8px;" onclick="openPaymentModal()">💳 תשלום</button>
     <button class="btn btn-ghost btn-block" style="margin-top:8px;" onclick="clearCart()">נקה עגלה</button>
   `;
@@ -814,6 +815,34 @@ async function parkCurrentSale(){
   STATE.preorders=STATE.preorders||[];
   STATE.preorders.unshift({id:uid('parked'),status:'parked',note:document.getElementById('park_note').value.trim(),cart:JSON.parse(JSON.stringify(STATE.cart)),cartDiscount:STATE.cartDiscount?JSON.parse(JSON.stringify(STATE.cartDiscount)):null,customerId:STATE.cartCustomerId||null,customerName:STATE.docCustomerName,customerPhone:STATE.docCustomerPhone,linkedRepairId:STATE.linkedRepairId||null,createdAt:new Date().toISOString()});
   await persistMisc(); closeModal(); clearCart(); toast('המכירה הושהתה ונשמרה','ok');
+}
+function openParkedSalesModal(){
+  const list=(STATE.preorders||[]).filter(p=>p.status==='parked').sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+  const body=list.length?'<table class="tbl"><thead><tr><th>זמן</th><th>הערה</th><th>פריטים</th><th>סכום</th><th></th></tr></thead><tbody>'+list.map(p=>{
+    const total=(p.cart||[]).reduce((s,l)=>s+(Number(l.unitPrice)||0)*(Number(l.qty)||1),0)-(Number(p.cartDiscount?.amount)||0);
+    return '<tr><td>'+fmtDate(p.createdAt)+'</td><td>'+esc(p.note||'—')+'</td><td>'+(p.cart||[]).reduce((s,l)=>s+(Number(l.qty)||1),0)+'</td><td><b>'+money(Math.max(0,total))+'</b></td><td><button class="btn btn-primary" onclick="resumeParkedSale(\\''+p.id+'\\')">המשך</button> <button class="btn btn-red" onclick="deleteParkedSale(\\''+p.id+'\\')">מחק</button></td></tr>';
+  }).join('')+'</tbody></table>':'<div class="empty-state">אין כרגע מכירות מושהות.</div>';
+  openModal('<div class="modal-head"><h3>📂 מכירות מושהות</h3><button class="modal-close" onclick="closeModal()">✕</button></div><div class="modal-body">'+body+'</div>',{wide:true});
+}
+async function resumeParkedSale(id){
+  const p=(STATE.preorders||[]).find(x=>x.id===id&&x.status==='parked');
+  if(!p){toast('המכירה לא נמצאה','err');return;}
+  if(STATE.cart.length&&!confirm('יש מכירה פתוחה בעגלה. להחליף אותה במכירה המושהית?')) return;
+  STATE.cart=JSON.parse(JSON.stringify(p.cart||[]));
+  STATE.cartDiscount=p.cartDiscount?JSON.parse(JSON.stringify(p.cartDiscount)):null;
+  STATE.cartCustomerId=p.customerId||null;
+  STATE.docCustomerName=p.customerName||'';
+  STATE.docCustomerPhone=p.customerPhone||'';
+  STATE.linkedRepairId=p.linkedRepairId||null;
+  STATE.preorders=STATE.preorders.filter(x=>x.id!==id);
+  await persistMisc(); closeModal(); renderCart(); toast('המכירה שוחזרה לעגלה','ok');
+}
+async function deleteParkedSale(id){
+  const p=(STATE.preorders||[]).find(x=>x.id===id&&x.status==='parked');
+  if(!p)return;
+  if(!confirm('למחוק את המכירה המושהית? פעולה זו לא ניתנת לשחזור.')) return;
+  STATE.preorders=STATE.preorders.filter(x=>x.id!==id);
+  await persistMisc(); openParkedSalesModal(); renderCart(); toast('המכירה המושהית נמחקה','ok');
 }
 function clearCart(){ STATE.cart=[]; STATE.cartDiscount=null; STATE.cartCustomerId=null; STATE.linkedRepairId=null; STATE.docCustomerName=''; STATE.docCustomerPhone=''; STATE.pointsToRedeem=0; renderCart(); }
 
