@@ -3697,6 +3697,7 @@ function renderReports(){
   const subtabs = [
     {id:'pl', label:'💰 רווח והפסד'},
     {id:'tech', label:'🔧 לפי טכנאי'},
+    {id:'payments', label:'💳 לפי תשלום'},
     {id:'sales', label:'🧾 כל המכירות'},
     {id:'returns', label:'↩️ החזרות'},
     {id:'preorders', label:'📦 הזמנות מראש'},
@@ -3715,6 +3716,7 @@ function afterReportsRender(){
   if(!body) return;
   if(reportsSubTab==='pl') body.innerHTML = renderPL();
   if(reportsSubTab==='tech') body.innerHTML = renderByTech();
+  if(reportsSubTab==='payments') body.innerHTML = renderPaymentsReport();
   if(reportsSubTab==='sales'){ body.innerHTML = renderSalesList(); renderSalesTable(); }
   if(reportsSubTab==='returns') body.innerHTML = renderReturnsList();
   if(reportsSubTab==='preorders') body.innerHTML = renderPreordersList();
@@ -3770,6 +3772,30 @@ function renderPL(){
     </tbody></table>` : emptyState('📊','אין מכירות בטווח התאריכים שנבחר')}
   </div>`;
 }
+function renderPaymentsReport(){
+  const sales=STATE.sales.filter(s=>inRange(s.date));
+  const returns=STATE.returns.filter(r=>inRange(r.date));
+  const methods={};
+  STATE.settings.paymentMethods.forEach(m=>methods[m.id]={name:m.name,icon:m.icon,in:0,count:0});
+  sales.forEach(s=>(s.payments||[]).forEach(p=>{
+    if(!methods[p.method]) methods[p.method]={name:p.method,icon:'💳',in:0,count:0};
+    methods[p.method].in+=Number(p.amount)||0; methods[p.method].count++;
+  }));
+  const rows=Object.entries(methods).filter(([,v])=>v.in||v.count).sort((a,b)=>b[1].in-a[1].in);
+  const totalIn=rows.reduce((s,[,v])=>s+v.in,0);
+  const refundTotal=returns.reduce((s,r)=>s+(Number(r.refundTotal)||0),0);
+  return dateRangeControls()+`
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:14px;">
+      ${statCard('💳','תקבולים לפי תשלומים',money(round2(totalIn)),'var(--blue-500)')}
+      ${statCard('↩️','החזרים בתקופה',money(round2(refundTotal)),'var(--red-600)')}
+      ${statCard('💰','נטו לאחר החזרים',money(round2(totalIn-refundTotal)),'var(--green-600)')}
+    </div>
+    <div class="card">
+      <div class="section-title">💳 פירוט לפי אמצעי תשלום</div>
+      ${rows.length?'<table class="tbl"><thead><tr><th>אמצעי</th><th>מספר עסקאות/שורות</th><th>סכום</th><th>אחוז</th></tr></thead><tbody>'+rows.map(([id,v])=>'<tr><td>'+esc(v.icon||'')+' <b>'+esc(v.name)+'</b></td><td>'+v.count+'</td><td>'+money(round2(v.in))+'</td><td>'+(totalIn?round2(v.in/totalIn*100):0)+'%</td></tr>').join('')+'</tbody></table>':emptyState('💳','אין תשלומים בטווח התאריכים שנבחר')}
+    </div>`;
+}
+
 function renderByTech(){
   const repairsInRange = STATE.repairs.filter(r=>inRange(r.date));
   const byTech = {};
