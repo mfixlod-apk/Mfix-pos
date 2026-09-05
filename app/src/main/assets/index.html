@@ -3174,12 +3174,13 @@ async function saveMessagingSettings(){
   await persist('settings'); toast('הגדרות שליחה נשמרו','ok');
 }
 async function saveRoleSettings(){
-  Object.assign(STATE.settings,{
-    rolesEnabled:document.getElementById('st_rolesenabled').checked,
-    managerPin:document.getElementById('st_managerpin').value.trim(),
-    cashierPin:document.getElementById('st_cashierpin').value.trim()
-  });
-  await persist('settings'); render(); toast('הגדרות הרשאות נשמרו','ok');
+  const rolesEnabled=document.getElementById('st_rolesenabled').checked;
+  const managerPin=document.getElementById('st_managerpin').value.trim();
+  const cashierPin=document.getElementById('st_cashierpin').value.trim();
+  if(rolesEnabled && !/^\d{4,12}$/.test(managerPin)){ toast('כאשר הרשאות פעילות חובה להגדיר PIN מנהל של 4–12 ספרות','err'); return; }
+  if(cashierPin && !/^\d{4,12}$/.test(cashierPin)){ toast('PIN קופאי חייב להכיל 4–12 ספרות','err'); return; }
+  Object.assign(STATE.settings,{rolesEnabled,managerPin,cashierPin});
+  await persist('settings'); logAudit('עדכון הרשאות','הרשאות '+(rolesEnabled?'הופעלו':'כובו')); await persist('auditLog'); render(); toast('הגדרות הרשאות נשמרו','ok');
 }
 async function saveGiftCardSettings(){
   STATE.settings.giftCardsEnabled = document.getElementById('st_giftcards').checked;
@@ -3622,6 +3623,10 @@ function openRoleLoginModal(mandatory){
 function attemptRoleLogin(role){
   const pin = (document.getElementById('loginPin').value||'').trim();
   const required = role==='manager' ? STATE.settings.managerPin : STATE.settings.cashierPin;
+  if(STATE.settings.rolesEnabled && role==='manager' && !required){
+    document.getElementById('loginError').textContent = 'יש להגדיר PIN למנהל לפני שניתן להיכנס כמנהל';
+    return;
+  }
   if(required && pin!==required){
     document.getElementById('loginError').textContent = 'קוד PIN שגוי';
     return;
@@ -4304,7 +4309,7 @@ function requireManager(action){
 }
 function confirmManagerOverride(action){
   const pin=(document.getElementById('managerOverridePin').value||'').trim();
-  if(!STATE.settings.managerPin || pin===STATE.settings.managerPin){
+  if(STATE.settings.managerPin && pin===STATE.settings.managerPin){
     logAction('אישור מנהל',action); persist('auditLog'); closeModal(); toast('אישור מנהל התקבל','ok');
     return true;
   }
