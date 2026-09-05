@@ -60,11 +60,22 @@ public class MainActivity extends Activity {
 
     public class PrinterBridge {
         @JavascriptInterface public void printRaster(String base64Raster, int bytesPerLine, int height) {
+            printRasterToDevice("", base64Raster, bytesPerLine, height);
+        }
+
+        @JavascriptInterface public void printRasterToDevice(String deviceName, String base64Raster, int bytesPerLine, int height) {
             byte[] raster;
             try { raster = Base64.decode(base64Raster, Base64.DEFAULT); }
             catch (Exception e) { toast("שגיאה בהכנת נתוני ההדפסה"); return; }
-            UsbDevice printer = findPrinter();
-            if (printer == null) { toast("לא נמצאה מדפסת USB מחוברת"); return; }
+
+            UsbDevice printer = findPrinterByName(deviceName);
+            if (printer == null) {
+                toast(deviceName == null || deviceName.length() == 0
+                    ? "לא נמצאה מדפסת USB מחוברת"
+                    : "המדפסת שנבחרה אינה מחוברת");
+                return;
+            }
+
             pendingRaster = raster;
             pendingBytesPerLine = bytesPerLine;
             pendingHeight = height;
