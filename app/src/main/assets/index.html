@@ -3149,6 +3149,14 @@ function mfixNativeUsbPrinters(){
     return JSON.parse(raw||'[]');
   }catch(e){ console.error('[MFIX USB DISCOVERY]',e); return []; }
 }
+function selectDetectedUsbPrinter(btn){
+  if(!btn) return;
+  const address=document.getElementById('pm_address');
+  const name=document.getElementById('pm_name');
+  if(address) address.value=btn.dataset.printerId||'';
+  if(name && !name.value.trim()) name.value=btn.dataset.printerName||'';
+}
+
 function openPrinterProfileModal(id){
   const p=(STATE.settings.printers||[]).find(x=>x.id===id)||{id:'',name:'',type:'USB',address:''};
   const usb=mfixNativeUsbPrinters();
@@ -3160,7 +3168,7 @@ function openPrinterProfileModal(id){
         <div class="field"><label class="flabel">סוג חיבור</label><select class="input" id="pm_type"><option ${p.type==='USB'?'selected':''}>USB</option><option ${p.type==='Bluetooth'?'selected':''}>Bluetooth</option><option ${p.type==='Network'?'selected':''}>Network</option></select></div>
       </div>
       <div class="field"><label class="flabel">כתובת / IP / מזהה</label><input class="input" id="pm_address" value="${esc(p.address||'')}" placeholder="ל-USB: מזהה המדפסת מזיהוי אוטומטי"></div>
-      <div id="pm_usb_wrap">${usb.length?'<div class="muted" style="font-size:12px;margin-bottom:7px;">מדפסות USB מחוברות:</div>'+usb.map(d=>'<button class="btn btn-outline" style="margin:0 0 7px 7px;" onclick="document.getElementById(\\'pm_address\\').value=\\''+esc(d.id)+'\\'; document.getElementById(\\'pm_name\\').value=document.getElementById(\\'pm_name\\').value||\\''+esc(d.name)+'\\';">USB '+esc(d.name)+' (#'+d.vendorId+':'+d.productId+')</button>').join(''):'<div class="muted" style="font-size:12px;">לא זוהתה מדפסת USB כרגע. חברו מדפסת ואז פתחו מחדש חלון זה.</div>'}</div>
+      <div id="pm_usb_wrap">${usb.length?'<div class="muted" style="font-size:12px;margin-bottom:7px;">מדפסות USB מחוברות:</div>'+usb.map(d=>'<button class="btn btn-outline" style="margin:0 0 7px 7px;" data-printer-id="'+esc(String(d.id))+'" data-printer-name="'+esc(String(d.name||''))+'" onclick="selectDetectedUsbPrinter(this)">USB '+esc(d.name)+' (#'+d.vendorId+':'+d.productId+')</button>').join(''):'<div class="muted" style="font-size:12px;">לא זוהתה מדפסת USB כרגע. חברו מדפסת ואז פתחו מחדש חלון זה.</div>'}</div>
     </div>
     <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal()">ביטול</button><button class="btn btn-primary" onclick="savePrinterProfile('${esc(p.id||'')}')">שמור</button></div>
   `, {wide:false});
