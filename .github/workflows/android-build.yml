@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   verify-and-build:
@@ -18,59 +18,6 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
-
-      - name: Repair known legacy JavaScript quote bugs
-        if: github.event_name == 'push'
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          p=Path('app/src/main/assets/index.html')
-          s=p.read_text(encoding='utf-8')
-          lines=s.splitlines(True)
-          changed=False
-          for i,line in enumerate(lines):
-              if "resumeParkedSale(" in line and "deleteParkedSale(" in line and "return '<tr>" in line:
-                  nl="    return '<tr><td>'+fmtDate(p.createdAt)+'</td><td>'+esc(p.note||'—')+'</td><td>'+(p.cart||[]).reduce((s,l)=>s+(Number(l.qty)||1),0)+'</td><td><b>'+money(Math.max(0,total))+'</b></td><td><button class=\"btn btn-primary\" onclick=\"resumeParkedSale('+JSON.stringify(p.id)+')\">המשך</button> <button class=\"btn btn-red\" onclick=\"deleteParkedSale('+JSON.stringify(p.id)+')\">מחק</button></td></tr>';\n"
-                  if line != nl:
-                      lines[i]=nl; changed=True
-              if "openPrinterProfileModal" in line and "deletePrinterProfile" in line and "printers.map(p=>" in line:
-                  nl="  wrap.innerHTML=printers.length?'<table class=\"tbl\"><thead><tr><th>שם</th><th>חיבור</th><th>כתובת/מזהה</th><th>פעולות</th></tr></thead><tbody>'+printers.map(p=>'<tr><td><b>'+esc(p.name)+'</b>'+(STATE.settings.defaultPrinterId===p.id?' <span class=\"pill green\">ברירת מחדל</span>':'')+'</td><td>'+esc(p.type)+'</td><td dir=\"ltr\">'+esc(p.address||'—')+'</td><td><button class=\"btn btn-ghost\" onclick=\"openPrinterProfileModal('+JSON.stringify(p.id)+')\">ערוך</button> <button class=\"btn btn-red\" onclick=\"deletePrinterProfile('+JSON.stringify(p.id)+')\">מחק</button></td></tr>').join('')+'</tbody></table>':'<div class=\"empty-state\" style=\"padding:20px\">🖨️ עדיין לא הוגדרה מדפסת</div>';\n"
-                  if line != nl:
-                      lines[i]=nl; changed=True
-              if 'id="pm_usb_wrap"' in line and 'usb.map(d=>' in line:
-                  indent=line[:len(line)-len(line.lstrip())]
-                  nl=indent+'<div id="pm_usb_wrap">${usb.length?\'<div class="muted" style="font-size:12px;margin-bottom:7px;">מדפסות USB מחוברות:</div>\'+usb.map(d=>\'<button class="btn btn-outline" style="margin:0 0 7px 7px;" data-id="\'+esc(d.id)+\'" data-name="\'+esc(d.name)+\'" onclick="selectDetectedUsbPrinter(this)">USB \'+esc(d.name)+\' (#\'+d.vendorId+\':\'+d.productId+\')</button>\').join(\'\'):\'<div class="muted" style="font-size:12px;">לא זוהתה מדפסת USB כרגע. חברו מדפסת ואז פתחו מחדש חלון זה.</div>\'}</div>\n'
-                  if line != nl:
-                      lines[i]=nl; changed=True
-          s=''.join(lines)
-          helper="""
-function selectDetectedUsbPrinter(btn){
-  if(!btn) return;
-  const address=document.getElementById('pm_address');
-  const name=document.getElementById('pm_name');
-  if(address) address.value=btn.dataset.id||'';
-  if(name && !name.value) name.value=btn.dataset.name||'';
-}
-"""
-          if 'function selectDetectedUsbPrinter(btn)' not in s:
-              marker='function renderPrinterProfilesWrap()'
-              pos=s.find(marker)
-              if pos>=0:
-                  s=s[:pos]+helper+'\n'+s[pos:]
-                  changed=True
-          if changed:
-              p.write_text(s,encoding='utf-8')
-              print('Repaired known MFIX JavaScript quote bug(s)')
-          else:
-              print('No known JavaScript quote bug found')
-          PY
-          if ! git diff --quiet -- app/src/main/assets/index.html; then
-            git config user.name "MFIX POS CI"
-            git config user.email "mfixlod@gmail.com"
-            git add app/src/main/assets/index.html
-            git commit -m "Fix USB printer picker JavaScript syntax and selection action"
-            git push
-          fi
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
@@ -87,19 +34,12 @@ function selectDetectedUsbPrinter(btn){
         with:
           gradle-version: '8.9'
 
-      - name: Show toolchain versions
-        run: |
-          java -version
-          gradle --version
-          sdkmanager --list | head -n 80
-
       - name: Build embedded web app smoke check
         run: |
           test -s app/src/main/assets/index.html
           grep -q '<!DOCTYPE html>' app/src/main/assets/index.html
           grep -q '<script' app/src/main/assets/index.html
           grep -q '</script>' app/src/main/assets/index.html
-          echo "Embedded MFIX web app asset present"
 
       - name: Validate MFIX JavaScript syntax
         run: |
@@ -114,17 +54,7 @@ function selectDetectedUsbPrinter(btn){
           Path('/tmp/mfix-app.js').write_text(script, encoding='utf-8')
           print(f'Extracted {len(script)} JavaScript characters from largest inline script')
           PY
-          if ! node --check /tmp/mfix-app.js 2>/tmp/mfix-node.err; then
-            cat /tmp/mfix-node.err
-            line=$(grep -oE ':[0-9]+$' /tmp/mfix-node.err | head -1 | tr -d ':')
-            if [ -n "$line" ]; then
-              start=$((line-4)); [ "$start" -lt 1 ] && start=1
-              end=$((line+4))
-              echo '--- JavaScript context ---'
-              nl -ba /tmp/mfix-app.js | sed -n "${start},${end}p"
-            fi
-            exit 1
-          fi
+          node --check /tmp/mfix-app.js
 
       - name: Assemble debug APK
         run: gradle --no-daemon --stacktrace --warning-mode all :app:assembleDebug
