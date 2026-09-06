@@ -17,6 +17,9 @@ public class MainActivity extends Activity {
     private byte[] pendingRaster;
     private int pendingBytesPerLine;
     private int pendingHeight;
+    private byte[] pendingRaw;
+    private boolean pendingRawShowSuccess;
+    private boolean pendingTest;
 
     private final BroadcastReceiver usbReceiver = new BroadcastReceiver() {
         @Override public void onReceive(Context context, Intent intent) {
@@ -24,9 +27,18 @@ public class MainActivity extends Activity {
             UsbDevice device = intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
             boolean granted = intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false);
             if (granted && device != null) {
-                if (pendingRaster != null) new Thread(() -> printToDevice(device, pendingRaster, pendingBytesPerLine, pendingHeight)).start();
-                else new Thread(() -> printTestToDevice(device)).start();
+                final byte[] raster = pendingRaster;
+                final int bpl = pendingBytesPerLine;
+                final int height = pendingHeight;
+                final byte[] raw = pendingRaw;
+                final boolean rawSuccess = pendingRawShowSuccess;
+                final boolean test = pendingTest;
+                clearPendingPrint();
+                if (raster != null) new Thread(() -> printToDevice(device, raster, bpl, height)).start();
+                else if (raw != null) new Thread(() -> sendRawToDevice(device, raw, rawSuccess)).start();
+                else if (test) new Thread(() -> printTestToDevice(device)).start();
             } else {
+                clearPendingPrint();
                 runOnUiThread(() -> Toast.makeText(MainActivity.this, "לא ניתנה הרשאה למדפסת USB", Toast.LENGTH_LONG).show());
             }
         }
@@ -82,30 +94,39 @@ public class MainActivity extends Activity {
                 toast(deviceName == null || deviceName.length() == 0 ? "לא נמצאה מדפסת USB מחוברת" : "המדפסת שנבחרה אינה מחוברת");
                 return;
             }
+            clearPendingPrint();
             pendingRaster = raster;
             pendingBytesPerLine = bytesPerLine;
             pendingHeight = height;
             if (!ensurePermission(printer)) return;
+            clearPendingPrint();
             new Thread(() -> printToDevice(printer, raster, bytesPerLine, height)).start();
         }
 
-        // Raw ESC/POS is intentionally exposed only for supported USB bulk-output printers.
         @JavascriptInterface public void printEscPosToDevice(String deviceName, String base64Data) {
             byte[] data;
             try { data = Base64.decode(base64Data, Base64.DEFAULT); }
             catch (Exception e) { toast("נתוני ESC/POS אינם תקינים"); return; }
             UsbDevice printer = findPrinterByName(deviceName);
             if (printer == null) { toast("המדפסת שנבחרה אינה מחוברת"); return; }
+            clearPendingPrint();
+            pendingRaw = data;
+            pendingRawShowSuccess = true;
             if (!ensurePermission(printer)) return;
+            clearPendingPrint();
             new Thread(() -> sendRawToDevice(printer, data, true)).start();
         }
 
         @JavascriptInterface public void openCashDrawer(String deviceName) {
             UsbDevice printer = findPrinterByName(deviceName);
             if (printer == null) { toast("לא נמצאה מדפסת USB לפתיחת מגירה"); return; }
+            byte[] pulse = new byte[]{0x1b,0x70,0x00,0x19,(byte)0xfa};
+            clearPendingPrint();
+            pendingRaw = pulse;
+            pendingRawShowSuccess = false;
             if (!ensurePermission(printer)) return;
-            // ESC/POS pulse on pin 2: 27 112 0 25 250
-            new Thread(() -> sendRawToDevice(printer, new byte[]{0x1b,0x70,0x00,0x19,(byte)0xfa}, false)).start();
+            clearPendingPrint();
+            new Thread(() -> sendRawToDevice(printer, pulse, false)).start();
         }
 
         @JavascriptInterface public String listUsbPrinters() {
@@ -138,10 +159,21 @@ public class MainActivity extends Activity {
         @JavascriptInterface public void requestUsbPrinterTest(String deviceName) {
             UsbDevice device = findPrinterByName(deviceName);
             if (device == null) { toast("המדפסת שנבחרה אינה מחוברת"); return; }
-            pendingRaster = null;
+            clearPendingPrint();
+            pendingTest = true;
             if (!ensurePermission(device)) return;
+            clearPendingPrint();
             new Thread(() -> printTestToDevice(device)).start();
         }
+    }
+
+    private synchronized void clearPendingPrint() {
+        pendingRaster = null;
+        pendingBytesPerLine = 0;
+        pendingHeight = 0;
+        pendingRaw = null;
+        pendingRawShowSuccess = false;
+        pendingTest = false;
     }
 
     private boolean ensurePermission(UsbDevice printer) {
