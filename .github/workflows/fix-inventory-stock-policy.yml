@@ -1,0 +1,100 @@
+name: Fix inventory persistence and allow sale without stock
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/fix-inventory-stock-policy.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply targeted inventory fixes
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('app/src/main/assets/index.html')
+          s=p.read_text(encoding='utf-8')
+          marker='/* MFIX INVENTORY STOCK POLICY v2 */'
+          if marker not in s:
+              s=s.replace("const MISC_PARTS = ['returns','shifts','giftCards','preorders','auditLog'];", "const MISC_PARTS = ['returns','shifts','giftCards','preorders','auditLog','inventoryHistory'];")
+              s=s.replace("function miscBundle(){\n  return {returns:STATE.returns, shifts:STATE.shifts, giftCards:STATE.giftCards, preorders:STATE.preorders, auditLog:STATE.auditLog};\n}", "function miscBundle(){\n  return {returns:STATE.returns, shifts:STATE.shifts, giftCards:STATE.giftCards, preorders:STATE.preorders, auditLog:STATE.auditLog, inventoryHistory:STATE.inventoryHistory||[]};\n}")
+              s=s.replace("  STATE.auditLog = (misc && misc.auditLog) || [];\n  STATE.currentShift", "  STATE.auditLog = (misc && misc.auditLog) || [];\n  STATE.inventoryHistory = (misc && Array.isArray(misc.inventoryHistory)) ? misc.inventoryHistory : [];\n  STATE.currentShift")
+              addon=r'''
+/* MFIX INVENTORY STOCK POLICY v2 */
+// Stock is informational for normal products: imported/zero/negative stock must not block a sale.
+(function(){
+  const baseAdd=window.addToCart;
+  window.addToCart=function(product,qty){
+    qty=Math.max(1,Number(qty)||1);
+    const existing=STATE.cart.find(l=>l.productId===product.id&&!l.imeiRowId);
+    if(existing) existing.qty+=qty;
+    else STATE.cart.push({lineId:uid('ln'),productId:product.id,name:product.name,qty:qty,unitPrice:product.price,isGift:false});
+    renderCart(); clearPosSearch();
+  };
+  window.changeCartQty=function(lineId,delta){
+    const line=STATE.cart.find(l=>l.lineId===lineId); if(!line)return;
+    if(line.imeiRowId){toast('מוצר עם סריאל — כמות תמיד 1.');return;}
+    line.qty=Math.max(1,(Number(line.qty)||1)+Number(delta||0)); renderCart();
+  };
+  const baseFinalize=window.finalizeSale;
+  window.finalizeSale=async function(){
+    // Temporarily lift only quantity-stock guards. Serial/IMEI availability is still validated.
+    const saved=[];
+    for(const line of (STATE.cart||[])){
+      const p=getProduct(line.productId);
+      if(p&&!p.trackSerial&&!p.isPart&&Number(p.stock||0)<Number(line.qty||0)){
+        saved.push([p,Number(p.stock||0)]); p.stock=1000000000;
+      }
+    }
+    const salesBefore=(STATE.sales||[]).length;
+    try{ await baseFinalize.apply(this,arguments); }
+    finally{
+      if(saved.length){
+        const sold=(STATE.sales||[]).length>salesBefore;
+        saved.forEach(([p,old])=>{ p.stock=sold ? old-Number((STATE.sales[STATE.sales.length-1]?.items||[]).filter(i=>i.productId===p.id).reduce((n,i)=>n+Number(i.qty||0),0) : old; });
+        if(sold) await persist('products');
+      }
+    }
+  };
+  window.persistMisc=async function(){
+    for(const part of ['returns','shifts','giftCards','preorders','auditLog','inventoryHistory']) await persist(part);
+  };
+})();
+'''
+              a,b=s.rsplit('</script>',1)
+              s=a+'\n'+addon+'\n</script>'+b
+              p.write_text(s,encoding='utf-8')
+          PY
+      - name: Commit source changes
+        run: |
+          if ! git diff --quiet -- app/src/main/assets/index.html; then
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add app/src/main/assets/index.html
+            git commit -m 'fix: persist inventory history and allow normal sales without stock'
+            git push origin HEAD:main
+          fi
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Build debug APK
+        run: |
+          chmod +x gradlew 2>/dev/null || true
+          if [ -f ./gradlew ]; then ./gradlew :app:assembleDebug; else gradle :app:assembleDebug; fi
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: mfix-pos-debug-inventory-policy
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
