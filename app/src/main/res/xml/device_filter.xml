@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Standard USB Printer Class devices (class 7). Vendor-specific printers
+         remain discoverable from inside MFIX POS through UsbManager. -->
+    <usb-device class="7" />
+</resources>
