@@ -1,0 +1,107 @@
+name: Expand inventory and serial controls
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/expand-inventory.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Add inventory operations panel
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('app/src/main/assets/index.html')
+          s=p.read_text()
+          marker='/* MFIX INVENTORY OPERATIONS v1 */'
+          if marker in s:
+              raise SystemExit('Inventory expansion already present')
+          addon=r'''
+
+/* MFIX INVENTORY OPERATIONS v1 */
+(function(){
+  function productById(id){ return (STATE.products||[]).find(p=>String(p.id)===String(id)); }
+  function history(){ STATE.inventoryHistory=Array.isArray(STATE.inventoryHistory)?STATE.inventoryHistory:[]; return STATE.inventoryHistory; }
+  async function saveProducts(){ try{ await persist('products'); }catch(e){ console.error(e); } }
+  async function saveHistory(){
+    // Keep history locally in misc-compatible state where available; localStorage fallback is intentional.
+    try{ localStorage.setItem('mfix_inventory_history',JSON.stringify(history().slice(-1000))); }catch(e){}
+  }
+  window.mfixLoadInventoryHistory=function(){
+    if(history().length) return;
+    try{ const x=JSON.parse(localStorage.getItem('mfix_inventory_history')||'[]'); if(Array.isArray(x)) STATE.inventoryHistory=x; }catch(e){}
+  };
+  window.mfixAdjustStock=async function(){
+    const id=document.getElementById('mfixInvProduct')?.value;
+    const delta=Number(document.getElementById('mfixInvDelta')?.value||0);
+    const reason=(document.getElementById('mfixInvReason')?.value||'התאמת מלאי').trim();
+    const p=productById(id);
+    if(!p){ toast('בחר מוצר','err'); return; }
+    if(!Number.isFinite(delta)||delta===0){ toast('הזן שינוי מלאי שונה מאפס','err'); return; }
+    const before=Number(p.stock||0), after=before+delta;
+    p.stock=after;
+    history().push({id:uid('stock'),productId:p.id,type:delta>0?'in':'out',qty:delta,before,after,reason,at:todayISO()});
+    await saveProducts(); await saveHistory();
+    toast('המלאי עודכן: '+before+' → '+after,'ok');
+    render();
+  };
+  window.mfixSaveProductSerial=async function(){
+    const id=document.getElementById('mfixInvProduct')?.value;
+    const value=(document.getElementById('mfixInvSerial')?.value||'').trim();
+    const p=productById(id);
+    if(!p){ toast('בחר מוצר','err'); return; }
+    if(!value){ toast('הזן IMEI / Serial','err'); return; }
+    p.serials=Array.isArray(p.serials)?p.serials:[];
+    if(p.serials.includes(value)){ toast('המספר כבר קיים במוצר','err'); return; }
+    p.serials.push(value);
+    p.trackSerial=true;
+    history().push({id:uid('serial'),productId:p.id,type:'serial',qty:0,before:Number(p.stock||0),after:Number(p.stock||0),reason:'IMEI/Serial: '+value,at:todayISO()});
+    await saveProducts(); await saveHistory();
+    toast('IMEI / Serial נשמר','ok');
+    const input=document.getElementById('mfixInvSerial'); if(input) input.value='';
+    render();
+  };
+  window.mfixShowStockHistory=function(){
+    const id=document.getElementById('mfixInvProduct')?.value;
+    const rows=history().filter(h=>!id||String(h.productId)===String(id)).slice().reverse().slice(0,100);
+    const body=rows.length?rows.map(h=>`<tr><td>${esc(fmtDate(h.at))}</td><td>${esc(productById(h.productId)?.name||h.productId)}</td><td>${esc(h.reason||h.type)}</td><td>${Number(h.qty||0)}</td><td>${Number(h.before||0)} → ${Number(h.after||0)}</td></tr>`).join(''):'<tr><td colspan="5" class="muted">אין היסטוריית מלאי</td></tr>';
+    openModal(`<div class="modal-head"><h3>📋 היסטוריית מלאי</h3><button class="modal-close" onclick="closeModal()">×</button></div><div class="modal-body"><div style="max-height:60vh;overflow:auto"><table class="tbl"><thead><tr><th>תאריך</th><th>מוצר</th><th>פעולה</th><th>שינוי</th><th>לפני → אחרי</th></tr></thead><tbody>${body}</tbody></table></div></div>`,{wide:true});
+  };
+  function panel(){
+    const options=(STATE.products||[]).map(p=>`<option value="${esc(p.id)}">${esc(p.name||'ללא שם')} — מלאי ${Number(p.stock||0)}</option>`).join('');
+    return `<div class="card" id="mfixInventoryOperationsPanel" style="margin-bottom:14px"><div class="section-title">📦 ניהול מלאי מהיר</div><div class="muted" style="font-size:12px;margin-bottom:12px">התאמת מלאי, היסטוריה ומספרי IMEI/Serial.</div><div class="grid3"><div class="field"><label class="flabel">מוצר</label><select class="input" id="mfixInvProduct"><option value="">בחר מוצר</option>${options}</select></div><div class="field"><label class="flabel">שינוי מלאי (+/-)</label><input class="input" id="mfixInvDelta" type="number" step="1" placeholder="לדוגמה 5 או -1"></div><div class="field"><label class="flabel">סיבה</label><input class="input" id="mfixInvReason" placeholder="קבלת סחורה / ספירה / תיקון"></div></div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"><button class="btn btn-primary" onclick="mfixAdjustStock()">עדכן מלאי</button><button class="btn btn-outline" onclick="mfixShowStockHistory()">📋 היסטוריית מלאי</button></div><div class="grid2"><div class="field"><label class="flabel">IMEI / Serial</label><input class="input" id="mfixInvSerial" placeholder="הדבק או סרוק מספר סידורי"></div><div class="field" style="display:flex;align-items:end"><button class="btn btn-outline" onclick="mfixSaveProductSerial()">שמור IMEI / Serial</button></div></div></div>`;
+  }
+  const oldRender=window.render;
+  window.render=function(){
+    const out=oldRender.apply(this,arguments);
+    setTimeout(()=>{
+      mfixLoadInventoryHistory();
+      if(!['products','inventory'].includes(String(STATE.activeTab||''))) return;
+      if(document.getElementById('mfixInventoryOperationsPanel')) return;
+      const view=document.querySelector('.view.active');
+      if(view) view.insertAdjacentHTML('afterbegin',panel());
+    },0);
+    return out;
+  };
+})();
+'''
+          if '</script>' not in s: raise SystemExit('script end marker not found')
+          a,b=s.rsplit('</script>',1)
+          p.write_text(a+addon+'\n</script>'+b)
+          PY
+      - name: Commit source change
+        run: |
+          if git diff --quiet; then exit 0; fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/main/assets/index.html
+          git commit -m 'feat: add inventory adjustments history and serial controls'
+          git push
