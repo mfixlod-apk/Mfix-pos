@@ -1,0 +1,93 @@
+name: Expand practical settings
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/expand-settings.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Add operational settings panel
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('app/src/main/assets/index.html')
+          s=p.read_text()
+          marker='/* MFIX SETTINGS EXPANSION v1 */'
+          if marker in s:
+              raise SystemExit('Settings expansion already present')
+          addon=r'''
+
+/* MFIX SETTINGS EXPANSION v1 */
+(function(){
+  function val(id){ const e=document.getElementById(id); return e?e.value:''; }
+  function checked(id){ const e=document.getElementById(id); return !!(e&&e.checked); }
+
+  window.mfixSaveOperationalSettings=async function(){
+    STATE.settings=STATE.settings||{};
+    const s=STATE.settings;
+    s.businessName=val('mfixSettingBusinessName').trim()||s.businessName||'';
+    s.businessPhone=val('mfixSettingBusinessPhone').trim();
+    s.businessAddress=val('mfixSettingBusinessAddress').trim();
+    s.businessEmail=val('mfixSettingBusinessEmail').trim();
+    s.businessId=val('mfixSettingBusinessId').trim();
+    s.defaultVatRate=Math.max(0,Number(val('mfixSettingVat'))||0);
+    s.lowStockThreshold=Math.max(0,Number(val('mfixSettingLowStock'))||0);
+    s.allowNegativeStock=checked('mfixSettingNegativeStock');
+    s.printerCopies=Math.max(1,Number(val('mfixSettingCopies'))||1);
+    s.autoPrintReceipt=checked('mfixSettingAutoPrint');
+    s.cashDrawerEnabled=checked('mfixSettingCashDrawer');
+    try{ await persist('settings'); }catch(e){ console.error(e); }
+    toast('ההגדרות נשמרו','ok');
+  };
+
+  const base=renderSettings;
+  renderSettings=function(){
+    const r=base();
+    if(r.includes('mfixOperationalSettingsPanel')) return r;
+    const s=STATE.settings||{};
+    const panel=`
+      <div class="card" id="mfixOperationalSettingsPanel">
+        <div class="section-title">⚙️ הגדרות תפעוליות מהירות</div>
+        <div class="muted" style="font-size:12px;margin-bottom:12px">הגדרות עסק, מלאי וקופה הנשמרות במכשיר.</div>
+        <div class="grid2">
+          <div class="field"><label class="flabel">שם העסק</label><input id="mfixSettingBusinessName" class="input" value="${esc(s.businessName||'')}"></div>
+          <div class="field"><label class="flabel">טלפון העסק</label><input id="mfixSettingBusinessPhone" class="input" value="${esc(s.businessPhone||'')}"></div>
+          <div class="field"><label class="flabel">כתובת העסק</label><input id="mfixSettingBusinessAddress" class="input" value="${esc(s.businessAddress||'')}"></div>
+          <div class="field"><label class="flabel">אימייל</label><input id="mfixSettingBusinessEmail" class="input" value="${esc(s.businessEmail||'')}"></div>
+          <div class="field"><label class="flabel">ח.פ / ע.מ</label><input id="mfixSettingBusinessId" class="input" value="${esc(s.businessId||'')}"></div>
+          <div class="field"><label class="flabel">מע״מ ברירת מחדל (%)</label><input id="mfixSettingVat" type="number" min="0" step="0.01" class="input" value="${Number(s.defaultVatRate||0)}"></div>
+          <div class="field"><label class="flabel">התראת מלאי נמוך</label><input id="mfixSettingLowStock" type="number" min="0" step="1" class="input" value="${Number(s.lowStockThreshold||2)}"></div>
+          <div class="field"><label class="flabel">מספר עותקים בהדפסה</label><input id="mfixSettingCopies" type="number" min="1" step="1" class="input" value="${Number(s.printerCopies||1)}"></div>
+        </div>
+        <div style="display:flex;gap:16px;flex-wrap:wrap;margin:10px 0 14px">
+          <label class="switchrow"><input id="mfixSettingNegativeStock" type="checkbox" ${s.allowNegativeStock!==false?'checked':''}> אפשר מכירה גם כשהמלאי חסר</label>
+          <label class="switchrow"><input id="mfixSettingAutoPrint" type="checkbox" ${s.autoPrintReceipt?'checked':''}> הדפס קבלה אוטומטית</label>
+          <label class="switchrow"><input id="mfixSettingCashDrawer" type="checkbox" ${s.cashDrawerEnabled?'checked':''}> מגירת מזומן פעילה</label>
+        </div>
+        <button class="btn btn-primary" onclick="mfixSaveOperationalSettings()">💾 שמור הגדרות</button>
+      </div>`;
+    return panel+r;
+  };
+})();
+'''
+          if '</script>' not in s: raise SystemExit('script end marker not found')
+          s=s.rsplit('</script>',1)[0]+addon+'\n</script>'+s.rsplit('</script>',1)[1]
+          p.write_text(s)
+          PY
+      - name: Commit source change
+        run: |
+          if git diff --quiet; then exit 0; fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/main/assets/index.html
+          git commit -m 'feat: expand operational settings panel'
+          git push
