@@ -33,14 +33,33 @@ jobs:
                   nl="    return '<tr><td>'+fmtDate(p.createdAt)+'</td><td>'+esc(p.note||'—')+'</td><td>'+(p.cart||[]).reduce((s,l)=>s+(Number(l.qty)||1),0)+'</td><td><b>'+money(Math.max(0,total))+'</b></td><td><button class=\"btn btn-primary\" onclick=\"resumeParkedSale('+JSON.stringify(p.id)+')\">המשך</button> <button class=\"btn btn-red\" onclick=\"deleteParkedSale('+JSON.stringify(p.id)+')\">מחק</button></td></tr>';\n"
                   if line != nl:
                       lines[i]=nl; changed=True
-              if "function renderPrinterProfilesWrap" in ''.join(lines[max(0,i-4):i+1]):
-                  pass
               if "openPrinterProfileModal" in line and "deletePrinterProfile" in line and "printers.map(p=>" in line:
                   nl="  wrap.innerHTML=printers.length?'<table class=\"tbl\"><thead><tr><th>שם</th><th>חיבור</th><th>כתובת/מזהה</th><th>פעולות</th></tr></thead><tbody>'+printers.map(p=>'<tr><td><b>'+esc(p.name)+'</b>'+(STATE.settings.defaultPrinterId===p.id?' <span class=\"pill green\">ברירת מחדל</span>':'')+'</td><td>'+esc(p.type)+'</td><td dir=\"ltr\">'+esc(p.address||'—')+'</td><td><button class=\"btn btn-ghost\" onclick=\"openPrinterProfileModal('+JSON.stringify(p.id)+')\">ערוך</button> <button class=\"btn btn-red\" onclick=\"deletePrinterProfile('+JSON.stringify(p.id)+')\">מחק</button></td></tr>').join('')+'</tbody></table>':'<div class=\"empty-state\" style=\"padding:20px\">🖨️ עדיין לא הוגדרה מדפסת</div>';\n"
                   if line != nl:
                       lines[i]=nl; changed=True
+              if 'id="pm_usb_wrap"' in line and 'usb.map(d=>' in line:
+                  indent=line[:len(line)-len(line.lstrip())]
+                  nl=indent+'<div id="pm_usb_wrap">${usb.length?\'<div class="muted" style="font-size:12px;margin-bottom:7px;">מדפסות USB מחוברות:</div>\'+usb.map(d=>\'<button class="btn btn-outline" style="margin:0 0 7px 7px;" data-id="\'+esc(d.id)+\'" data-name="\'+esc(d.name)+\'" onclick="selectDetectedUsbPrinter(this)">USB \'+esc(d.name)+\' (#\'+d.vendorId+\':\'+d.productId+\')</button>\').join(\'\'):\'<div class="muted" style="font-size:12px;">לא זוהתה מדפסת USB כרגע. חברו מדפסת ואז פתחו מחדש חלון זה.</div>\'}</div>\n'
+                  if line != nl:
+                      lines[i]=nl; changed=True
+          s=''.join(lines)
+          helper="""
+function selectDetectedUsbPrinter(btn){
+  if(!btn) return;
+  const address=document.getElementById('pm_address');
+  const name=document.getElementById('pm_name');
+  if(address) address.value=btn.dataset.id||'';
+  if(name && !name.value) name.value=btn.dataset.name||'';
+}
+"""
+          if 'function selectDetectedUsbPrinter(btn)' not in s:
+              marker='function renderPrinterProfilesWrap()'
+              pos=s.find(marker)
+              if pos>=0:
+                  s=s[:pos]+helper+'\n'+s[pos:]
+                  changed=True
           if changed:
-              p.write_text(''.join(lines),encoding='utf-8')
+              p.write_text(s,encoding='utf-8')
               print('Repaired known MFIX JavaScript quote bug(s)')
           else:
               print('No known JavaScript quote bug found')
@@ -49,7 +68,7 @@ jobs:
             git config user.name "MFIX POS CI"
             git config user.email "mfixlod@gmail.com"
             git add app/src/main/assets/index.html
-            git commit -m "Fix printer profile action quoting that caused JavaScript syntax failure"
+            git commit -m "Fix USB printer picker JavaScript syntax and selection action"
             git push
           fi
 
