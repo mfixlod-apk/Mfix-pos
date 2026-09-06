@@ -1,0 +1,74 @@
+name: Apply inventory sale policy
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/apply-inventory-sale-policy.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Allow POS sales without blocking on quantity
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path("app/src/main/assets/index.html")
+          s=p.read_text()
+          old="""    lowStockThreshold:2,
+    whatsappTemplate:"""
+          new="""    lowStockThreshold:2,
+    allowNegativeStock:true,
+    whatsappTemplate:"""
+          if old in s and "allowNegativeStock:true" not in s:
+              s=s.replace(old,new,1)
+          old_block="""  // Final stock validation: prevents checkout when another sale/edit changed inventory while cart was open.
+  for(const l of calc.lines){
+    if(l.isGiftCardSale || l.linkedPreorderId || l.isPart) continue;
+    const p=getProduct(l.productId);
+    if(!p){ toast('המוצר \"'+l.name+'\" כבר לא קיים במלאי','err'); return; }
+    if(p.trackSerial){
+      const unit=(p.imeis||[]).find(i=>i.imei1===l.imei && i.status==='available');
+      if(!unit){ toast('יחידת IMEI עבור \"'+l.name+'\" אינה זמינה יותר. רעננו את העגלה.','err'); return; }
+    }else if((Number(p.stock)||0) < Number(l.qty||0)){
+      toast('אין מספיק מלאי עבור \"'+l.name+'\". זמין: '+(Number(p.stock)||0),'err'); return;
+    }
+  }
+"""
+          new_block="""  // Stock quantity is informational by default: sales may continue below zero.
+  // Serialized/IMEI products still require a real available unit so the wrong device is never sold.
+  for(const l of calc.lines){
+    if(l.isGiftCardSale || l.linkedPreorderId || l.isPart) continue;
+    const p=getProduct(l.productId);
+    if(!p){ toast('המוצר \"'+l.name+'\" כבר לא קיים','err'); return; }
+    if(p.trackSerial){
+      const unit=(p.imeis||[]).find(i=>i.imei1===l.imei && i.status==='available');
+      if(!unit){ toast('יחידת IMEI עבור \"'+l.name+'\" אינה זמינה יותר. רעננו את העגלה.','err'); return; }
+    }else if(STATE.settings.allowNegativeStock===false && (Number(p.stock)||0) < Number(l.qty||0)){
+      toast('אין מספיק מלאי עבור \"'+l.name+'\". זמין: '+(Number(p.stock)||0),'err'); return;
+    }
+  }
+"""
+          if old_block in s:
+              s=s.replace(old_block,new_block,1)
+          elif "Stock quantity is informational by default" not in s:
+              raise SystemExit("Expected stock validation block not found")
+          p.write_text(s)
+          PY
+      - name: Commit source change
+        run: |
+          if git diff --quiet; then
+            echo "No source changes needed"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/assets/index.html
+          git commit -m "fix: allow non-serialized sales below zero stock"
+          git push
