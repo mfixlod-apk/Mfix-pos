@@ -1,0 +1,58 @@
+name: Apply POS inventory reliability fixes
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/apply-pos-inventory-fixes.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch-source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply focused source fixes
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('app/src/main/assets/index.html')
+          s = p.read_text(encoding='utf-8')
+          changes = [
+            ("const MISC_PARTS = ['returns','shifts','giftCards','preorders','auditLog'];", "const MISC_PARTS = ['returns','shifts','giftCards','preorders','auditLog','inventoryHistory'];"),
+            ("  STATE.auditLog = (misc && misc.auditLog) || [];\n  STATE.currentShift", "  STATE.auditLog = (misc && misc.auditLog) || [];\n  STATE.inventoryHistory = (misc && misc.inventoryHistory) || [];\n  STATE.currentShift"),
+            ("  return {returns:STATE.returns, shifts:STATE.shifts, giftCards:STATE.giftCards, preorders:STATE.preorders, auditLog:STATE.auditLog};", "  return {returns:STATE.returns, shifts:STATE.shifts, giftCards:STATE.giftCards, preorders:STATE.preorders, auditLog:STATE.auditLog, inventoryHistory:STATE.inventoryHistory};"),
+            ("  const available=Number(productAvailableQty(product))||0;\n  const requested=availableCartQty(product.id)+qty;\n  if(requested>available){ toast('אין מספיק מלאי זמין. זמין: '+available+', בעגלה: '+availableCartQty(product.id),'err'); return; }\n", ""),
+            ("  const p=getProduct(line.productId);\n  if(p && next>Number(productAvailableQty(p)||0)){ toast('אין מספיק מלאי זמין. זמין: '+productAvailableQty(p),'err'); return; }\n", ""),
+            ("    }else if((Number(p.stock)||0) < Number(l.qty||0)){\n      toast('אין מספיק מלאי עבור \"'+l.name+'\". זמין: '+(Number(p.stock)||0),'err'); return;\n    }\n", "    }\n"),
+            ("      touchedGiftCards = true;\n      return;\n    }\n    if(l.linkedPreorderId){", "      touchedGiftCards = true;\n      continue;\n    }\n    if(l.linkedPreorderId){"),
+            ("        touchedPreorders = true;\n      }\n      return;\n    }\n    const p = getProduct(l.productId);\n    if(!p) return;", "        touchedPreorders = true;\n      }\n      continue;\n    }\n    const p = getProduct(l.productId);\n    if(!p) continue;")
+          ]
+          for old, new in changes:
+              if old not in s:
+                  raise SystemExit('Expected source fragment not found: ' + old[:80])
+              s = s.replace(old, new, 1)
+          p.write_text(s, encoding='utf-8')
+          PY
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          s=Path('app/src/main/assets/index.html').read_text(encoding='utf-8')
+          # Basic guardrails for this migration.
+          assert "'inventoryHistory'" in re.search(r"const MISC_PARTS = \[(.*?)\];", s).group(1)
+          assert "STATE.inventoryHistory = (misc && misc.inventoryHistory) || [];" in s
+          assert "inventoryHistory:STATE.inventoryHistory" in s
+          assert "if(requested>available)" not in s
+          assert "next>Number(productAvailableQty(p)||0)" not in s
+          assert "continue;\n    }\n    if(l.linkedPreorderId)" in s
+          PY
+      - name: Commit source and remove one-time workflow
+        run: |
+          git config user.name 'mfixlod-apk'
+          git config user.email 'mfixlod@gmail.com'
+          git rm .github/workflows/apply-pos-inventory-fixes.yml
+          git add app/src/main/assets/index.html
+          git commit -m "fix: persist inventory history and allow non-serial sales without stock blocking"
+          git push
