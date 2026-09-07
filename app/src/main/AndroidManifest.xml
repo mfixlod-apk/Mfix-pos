@@ -8,7 +8,7 @@
         android:theme="@style/AppTheme"
         android:usesCleartextTraffic="true">
         <activity
-            android:name=".MainActivity"
+            android:name=".PatchedMainActivity"
             android:screenOrientation="unspecified"
             android:exported="true">
             <intent-filter>
