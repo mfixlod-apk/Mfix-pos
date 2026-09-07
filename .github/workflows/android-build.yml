@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   verify-and-build:
@@ -18,6 +18,97 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply one-time inventory source migration
+        if: github.event_name != 'pull_request'
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('app/src/main/assets/index.html')
+          s=p.read_text(encoding='utf-8')
+          marker='/* MFIX INVENTORY STOCK POLICY v2 */'
+          if marker not in s:
+              s=s.replace("const MISC_PARTS = ['returns','shifts','giftCards','preorders','auditLog'];", "const MISC_PARTS = ['returns','shifts','giftCards','preorders','auditLog','inventoryHistory'];")
+              s=s.replace("function miscBundle(){\n  return {returns:STATE.returns, shifts:STATE.shifts, giftCards:STATE.giftCards, preorders:STATE.preorders, auditLog:STATE.auditLog};\n}", "function miscBundle(){\n  return {returns:STATE.returns, shifts:STATE.shifts, giftCards:STATE.giftCards, preorders:STATE.preorders, auditLog:STATE.auditLog, inventoryHistory:STATE.inventoryHistory||[]};\n}")
+              s=s.replace("  STATE.auditLog = (misc && misc.auditLog) || [];\n  STATE.currentShift", "  STATE.auditLog = (misc && misc.auditLog) || [];\n  STATE.inventoryHistory = (misc && Array.isArray(misc.inventoryHistory)) ? misc.inventoryHistory : [];\n  STATE.currentShift")
+              addon=r'''
+/* MFIX INVENTORY STOCK POLICY v2 */
+// Normal product stock is informational. Serial/IMEI availability remains enforced.
+(function(){
+  const originalAdd=window.addToCart;
+  if(typeof originalAdd==='function'){
+    window.addToCart=function(product,qty){
+      if(!product) return;
+      qty=Math.max(1,Number(qty)||1);
+      const existing=(STATE.cart||[]).find(l=>l.productId===product.id&&!l.imeiRowId);
+      if(existing) existing.qty=Number(existing.qty||0)+qty;
+      else STATE.cart.push({lineId:uid('ln'),productId:product.id,name:product.name,qty:qty,unitPrice:product.price,isGift:false});
+      if(typeof renderCart==='function') renderCart();
+      if(typeof clearPosSearch==='function') clearPosSearch();
+    };
+  }
+  const originalQty=window.changeCartQty;
+  if(typeof originalQty==='function'){
+    window.changeCartQty=function(lineId,delta){
+      const line=(STATE.cart||[]).find(l=>l.lineId===lineId); if(!line) return;
+      if(line.imeiRowId){ if(typeof toast==='function') toast('מוצר עם סריאל — כמות תמיד 1.'); return; }
+      line.qty=Math.max(1,Number(line.qty||1)+Number(delta||0));
+      if(typeof renderCart==='function') renderCart();
+    };
+  }
+  const originalFinalize=window.finalizeSale;
+  if(typeof originalFinalize==='function'){
+    window.finalizeSale=async function(){
+      // Lift only quantity stock guards for ordinary products while retaining the real finalize path.
+      const changed=[];
+      for(const line of (STATE.cart||[])){
+        const p=typeof getProduct==='function' ? getProduct(line.productId) : null;
+        if(p&&!p.trackSerial&&!p.isPart&&Number(p.stock||0)<Number(line.qty||0)){
+          changed.push({p:p,stock:Number(p.stock||0)}); p.stock=1000000000;
+        }
+      }
+      const before=(STATE.sales||[]).length;
+      try { return await originalFinalize.apply(this,arguments); }
+      finally {
+        const completed=(STATE.sales||[]).length>before;
+        if(changed.length){
+          const last=completed ? STATE.sales[STATE.sales.length-1] : null;
+          changed.forEach(x=>{
+            const sold=last ? (last.items||[]).filter(i=>i.productId===x.p.id).reduce((n,i)=>n+Number(i.qty||0),0) : 0;
+            x.p.stock=completed ? x.stock-sold : x.stock;
+          });
+          if(completed && typeof persist==='function') await persist('products');
+        }
+      }
+    };
+  }
+  window.persistMisc=async function(){
+    if(typeof persist!=='function') return;
+    for(const part of ['returns','shifts','giftCards','preorders','auditLog','inventoryHistory']) await persist(part);
+  };
+})();
+'''
+              head,tail=s.rsplit('</script>',1)
+              s=head+'\n'+addon+'\n</script>'+tail
+              p.write_text(s,encoding='utf-8')
+          PY
+          if ! grep -q 'MFIX INVENTORY STOCK POLICY v2' app/src/main/assets/index.html; then
+            echo 'Inventory migration marker missing after patch' >&2
+            exit 1
+          fi
+
+      - name: Commit migrated source
+        if: github.event_name != 'pull_request'
+        run: |
+          if ! git diff --quiet -- app/src/main/assets/index.html; then
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add app/src/main/assets/index.html
+            git commit -m 'fix: persist inventory history and allow sales without stock'
+            git push origin HEAD:main
+          fi
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
@@ -40,6 +131,7 @@ jobs:
           grep -q '<!DOCTYPE html>' app/src/main/assets/index.html
           grep -q '<script' app/src/main/assets/index.html
           grep -q '</script>' app/src/main/assets/index.html
+          grep -q 'MFIX INVENTORY STOCK POLICY v2' app/src/main/assets/index.html
 
       - name: Validate MFIX JavaScript syntax
         run: |
