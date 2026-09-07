@@ -1,0 +1,14 @@
+name: CI Smoke
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Confirm runner starts
+        run: echo "MFIX CI smoke runner started"
