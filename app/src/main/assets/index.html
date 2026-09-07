@@ -209,7 +209,7 @@ const STORAGE_KEYS = {
   sales:'cp_sales', repairs:'cp_repairs',
   misc:'cp_misc' // bundles: returns, shifts, giftCards, preorders, auditLog — saved together to cut down request volume
 };
-const MISC_PARTS = ['returns','shifts','giftCards','preorders','auditLog'];
+const MISC_PARTS = ['returns','shifts','giftCards','preorders','auditLog','inventoryHistory'];
 
 let STATE = {
   activeTab:'pos',
@@ -422,6 +422,7 @@ async function loadAll(){
   STATE.giftCards = (misc && misc.giftCards) || [];
   STATE.preorders = (misc && misc.preorders) || [];
   STATE.auditLog = (misc && misc.auditLog) || [];
+  STATE.inventoryHistory = (misc && misc.inventoryHistory) || [];
   STATE.currentShift = STATE.shifts.find(s=>s.status==='open') || null;
   if(!settings) await saveKey(STORAGE_KEYS.settings, STATE.settings);
   if(!products) await saveKey(STORAGE_KEYS.products, STATE.products);
@@ -450,7 +451,7 @@ async function scheduleSave(key, valueGetter, part){
   });
 }
 function miscBundle(){
-  return {returns:STATE.returns, shifts:STATE.shifts, giftCards:STATE.giftCards, preorders:STATE.preorders, auditLog:STATE.auditLog};
+  return {returns:STATE.returns, shifts:STATE.shifts, giftCards:STATE.giftCards, preorders:STATE.preorders, auditLog:STATE.auditLog, inventoryHistory:STATE.inventoryHistory};
 }
 async function persist(part){
   const directMap = {settings:'settings', products:'products', customers:'customers', sales:'sales', repairs:'repairs'};
@@ -675,9 +676,6 @@ function availableCartQty(productId){
 }
 function addToCart(product, qty){
   qty=Math.max(1,Number(qty)||1);
-  const available=Number(productAvailableQty(product))||0;
-  const requested=availableCartQty(product.id)+qty;
-  if(requested>available){ toast('אין מספיק מלאי זמין. זמין: '+available+', בעגלה: '+availableCartQty(product.id),'err'); return; }
   const existing = STATE.cart.find(l=>l.productId===product.id && !l.imeiRowId);
   if(existing){ existing.qty += qty; }
   else{ STATE.cart.push({lineId:uid('ln'), productId:product.id, name:product.name, qty:qty, unitPrice:product.price, isGift:false}); }
@@ -693,8 +691,6 @@ function changeCartQty(lineId, delta){
   if(!line) return;
   if(line.imeiRowId){ toast('מוצר עם סריאל — כמות תמיד 1. הסר והוסף יחידה נוספת אם צריך.'); return; }
   const next=Math.max(1,line.qty+delta);
-  const p=getProduct(line.productId);
-  if(p && next>Number(productAvailableQty(p)||0)){ toast('אין מספיק מלאי זמין. זמין: '+productAvailableQty(p),'err'); return; }
   line.qty = next;
   renderCart();
 }
@@ -1065,8 +1061,6 @@ async function finalizeSale(){
     if(p.trackSerial){
       const unit=(p.imeis||[]).find(i=>i.imei1===l.imei && i.status==='available');
       if(!unit){ toast('יחידת IMEI עבור "'+l.name+'" אינה זמינה יותר. רעננו את העגלה.','err'); return; }
-    }else if((Number(p.stock)||0) < Number(l.qty||0)){
-      toast('אין מספיק מלאי עבור "'+l.name+'". זמין: '+(Number(p.stock)||0),'err'); return;
     }
   }
 
@@ -1133,7 +1127,7 @@ async function finalizeSale(){
       STATE.giftCards.push({code, initialValue:l.unitPrice, balance:l.unitPrice, issuedDate:todayISO(), issuedSaleId:sale.id, customerId:STATE.cartCustomerId||null});
       sale.items[idx].giftCardCode = code;
       touchedGiftCards = true;
-      return;
+      continue;
     }
     if(l.linkedPreorderId){
       const po = STATE.preorders.find(p=>p.id===l.linkedPreorderId);
@@ -1143,10 +1137,10 @@ async function finalizeSale(){
         if(po.remaining<=0) po.status='נמסר';
         touchedPreorders = true;
       }
-      return;
+      continue;
     }
     const p = getProduct(l.productId);
-    if(!p) return;
+    if(!p) continue;
     if(p.trackSerial){
       const before=productAvailableQty(p);
       const row = p.imeis.find(i=>i.imei1===l.imei && (!l.serial || i.serial===l.serial));
