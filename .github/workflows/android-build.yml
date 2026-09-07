@@ -5,6 +5,7 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# MFIX CI trigger after POS/inventory reliability fixes.
 jobs:
   build:
     name: Build Debug APK
