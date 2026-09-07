@@ -5,7 +5,6 @@ on:
     branches: [main]
   workflow_dispatch:
 
-# MFIX CI trigger after POS/inventory reliability fixes.
 jobs:
   build:
     name: Build Debug APK
@@ -26,8 +25,15 @@ jobs:
         with:
           gradle-version: '8.10'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      # ubuntu-latest already provides an Android SDK. Do not request the legacy
+      # "tools" package: Google occasionally returns HTTP 502 for that retired package.
+      - name: Prepare Android SDK
+        run: |
+          echo "ANDROID_HOME=${ANDROID_HOME:-$ANDROID_SDK_ROOT}" >> "$GITHUB_ENV"
+          SDKMANAGER="${ANDROID_HOME:-$ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SDKMANAGER" ]; then SDKMANAGER="${ANDROID_HOME:-$ANDROID_SDK_ROOT}/cmdline-tools/16.0/bin/sdkmanager"; fi
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0"
 
       - name: Validate embedded app
         run: |
