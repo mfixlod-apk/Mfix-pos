@@ -43,6 +43,13 @@ def main() -> int:
     require(runtime, "originalFinalize=window.finalizeSale", "checkout guard wraps the real finalization flow", errors)
     require(runtime, "המכירה כבר בתהליך", "duplicate checkout feedback remains present", errors)
 
+    # Manual sales are intentionally not inventory-backed. Keep the full path protected:
+    # entry modal -> cart marker -> checkout stock-validation bypass.
+    require(html, "function openManualSaleModal()", "manual sale entry modal remains available", errors)
+    require(html, "isManual:true", "manual sale lines retain their explicit marker", errors)
+    require(html, "if(l.isManual || l.isGiftCardSale || l.linkedPreorderId || l.isPart) continue;",
+            "manual sale bypasses inventory lookup during checkout", errors)
+
     require(html, "paymentRows[${idx}].reference=this.value", "payment reference input remains available", errors)
     require(html, "reference:['bit','check','transfer'].includes(r.method)", "payment reference is persisted on the sale", errors)
     require(html, "יש להזין מספר צ׳ק", "check reference validation remains present", errors)
