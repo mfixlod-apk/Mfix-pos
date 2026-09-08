@@ -43,6 +43,19 @@ def main() -> int:
     require(runtime, "originalFinalize=window.finalizeSale", "checkout guard wraps the real finalization flow", errors)
     require(runtime, "המכירה כבר בתהליך", "duplicate checkout feedback remains present", errors)
 
+    # Payment references must remain persisted for bank/check/Bit payment rows.
+    require(html, "paymentRows[${idx}].reference=this.value", "payment reference input remains available", errors)
+    require(html, "reference:['bit','check','transfer'].includes(r.method)", "payment reference is persisted on the sale", errors)
+    require(html, "יש להזין מספר צ׳ק", "check reference validation remains present", errors)
+    require(html, "יש להזין מספר אסמכתא להעברה בנקאית", "bank transfer reference validation remains present", errors)
+
+    # Sales reporting runtime layer: summary, payment breakdown, top products and CSV export.
+    require(runtime, "REPORTS_PATCH", "runtime sales reports patch remains installed", errors)
+    require(runtime, "window.mfixOpenSalesReport", "sales report modal entry point remains present", errors)
+    require(runtime, "window.mfixExportSalesReport", "sales report CSV export remains present", errors)
+    require(runtime, "10 מוצרים מובילים", "top-products report remains present", errors)
+    require(runtime, "אמצעי תשלום", "payment-method report breakdown remains present", errors)
+
     # The launcher can be either the printer patch activity or the runtime safety
     # wrapper. Both must ultimately preserve the native MainActivity printer bridge.
     launcher_ok = ('android:name=".PatchedMainActivity"' in manifest or
