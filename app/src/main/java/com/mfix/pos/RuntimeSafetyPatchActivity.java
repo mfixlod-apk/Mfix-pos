@@ -6,7 +6,7 @@ import android.view.ViewGroup;
 import android.webkit.WebView;
 
 /**
- * Small runtime safety layer for business-logic fixes that must be applied
+ * Runtime safety layer for business-logic fixes that must be applied
  * without duplicating the embedded single-page POS application.
  */
 public class RuntimeSafetyPatchActivity extends PatchedMainActivity {
@@ -23,12 +23,32 @@ public class RuntimeSafetyPatchActivity extends PatchedMainActivity {
         "install();" +
         "})();";
 
+    private static final String CHECKOUT_GUARD_PATCH =
+        "(function(){" +
+        "if(window.__mfixCheckoutGuardPatch)return;window.__mfixCheckoutGuardPatch=true;" +
+        "function install(){" +
+        "if(typeof window.finalizeSale!=='function'){setTimeout(install,250);return;}" +
+        "var originalFinalize=window.finalizeSale,inFlight=false;" +
+        "window.finalizeSale=async function(){" +
+        "if(inFlight){if(typeof window.toast==='function')window.toast('המכירה כבר בתהליך. נא להמתין לסיום הפעולה','err');return;}" +
+        "inFlight=true;var buttons=Array.prototype.slice.call(document.querySelectorAll('[onclick=\\\"finalizeSale()\\\"]'));buttons.forEach(function(b){b.disabled=true;});" +
+        "try{return await originalFinalize.apply(this,arguments);}" +
+        "finally{inFlight=false;buttons.forEach(function(b){b.disabled=false;});}" +
+        "};" +
+        "console.log('[MFIX] checkout duplicate-submit guard active');" +
+        "}" +
+        "install();" +
+        "})();";
+
     @Override protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         View root = ((ViewGroup) findViewById(android.R.id.content)).getChildAt(0);
         if (root instanceof WebView) {
             WebView web = (WebView) root;
-            web.postDelayed(() -> web.evaluateJavascript(RETURN_AND_IMPORT_PATCH, null), 1100);
+            web.postDelayed(() -> {
+                web.evaluateJavascript(RETURN_AND_IMPORT_PATCH, null);
+                web.evaluateJavascript(CHECKOUT_GUARD_PATCH, null);
+            }, 1100);
         }
     }
 }
