@@ -37,6 +37,12 @@ def main() -> int:
     require(html, "imei", "IMEI support remains present in the POS source", errors)
     require(html, "serial", "serial-number support remains present in the POS source", errors)
 
+    # POS checkout safety: payment submission must remain protected from duplicate taps.
+    require(html, "async function finalizeSale()", "checkout finalization remains present", errors)
+    require(runtime, "CHECKOUT_GUARD_PATCH", "runtime checkout guard remains installed", errors)
+    require(runtime, "originalFinalize=window.finalizeSale", "checkout guard wraps the real finalization flow", errors)
+    require(runtime, "המכירה כבר בתהליך", "duplicate checkout feedback remains present", errors)
+
     # The launcher can be either the printer patch activity or the runtime safety
     # wrapper. Both must ultimately preserve the native MainActivity printer bridge.
     launcher_ok = ('android:name=".PatchedMainActivity"' in manifest or
