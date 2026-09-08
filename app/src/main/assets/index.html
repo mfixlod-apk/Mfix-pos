@@ -548,9 +548,9 @@ function renderPOS(){
   <div style="display:grid;grid-template-columns:1fr 380px;gap:16px;height:calc(100vh - 96px);">
     <div style="display:flex;flex-direction:column;min-width:0;">
       <div class="card" style="margin-bottom:12px;flex-shrink:0;">
-        <div style="display:flex;gap:10px;">
-          <input class="input" id="posSearch" placeholder="חיפוש מוצר, ברקוד או IMEI..." value="${esc(posSearchTerm)}" oninput="posSearchTerm=this.value; renderPOSGrid();" onfocus="this.select();" style="flex:1;font-size:15px;padding:13px;">
-          <button class="btn btn-outline" onclick="openManualSaleModal()">🔢 מכירה ידנית</button>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+          <input class="input" id="posSearch" placeholder="חיפוש מוצר, ברקוד או IMEI..." value="${esc(posSearchTerm)}" oninput="posSearchTerm=this.value; renderPOSGrid();" onfocus="this.select();" style="flex:1;min-width:180px;font-size:15px;padding:13px;">
+          <button id="mfixManualSaleButton" class="btn btn-primary" style="white-space:nowrap;flex-shrink:0;" onclick="if(typeof openManualSaleModal==='function'){openManualSaleModal();}else{toast('מכירה ידנית עדיין נטענת, נסה שוב בעוד רגע','err');}">🔢 מכירה ידנית</button>
           <button class="btn btn-outline" onclick="openPromoModal()">🎁 מבצעים</button>
           <button class="btn btn-outline" onclick="openRepairPickup()">🔧 טען טופס תיקון</button>
           <button class="btn btn-outline" onclick="openPreorderModal()">📦 הזמנה מראש</button>
