@@ -1056,7 +1056,8 @@ async function finalizeSale(){
 
   // Final stock validation: prevents checkout when another sale/edit changed inventory while cart was open.
   for(const l of calc.lines){
-    if(l.isGiftCardSale || l.linkedPreorderId || l.isPart) continue;
+    // Manual-sale lines are service/custom-price items and intentionally have no inventory product.
+    if(l.isManual || l.isGiftCardSale || l.linkedPreorderId || l.isPart) continue;
     const p=getProduct(l.productId);
     if(!p){ toast('המוצר "'+l.name+'" כבר לא קיים במלאי','err'); return; }
     if(p.trackSerial){
