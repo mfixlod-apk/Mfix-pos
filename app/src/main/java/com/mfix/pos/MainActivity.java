@@ -2,6 +2,7 @@ package com.mfix.pos;
 
 import android.app.*;
 import android.content.*;
+import android.net.Uri;
 import android.hardware.usb.*;
 import android.os.Bundle;
 import android.util.Base64;
@@ -9,6 +10,7 @@ import android.webkit.*;
 import android.widget.Toast;
 
 import java.nio.charset.StandardCharsets;
+import java.io.OutputStream;
 import java.util.*;
 
 public class MainActivity extends Activity {
@@ -20,6 +22,11 @@ public class MainActivity extends Activity {
     private byte[] pendingRaw;
     private boolean pendingRawShowSuccess;
     private boolean pendingTest;
+    private WebView webView;
+    private ValueCallback<Uri[]> fileChooserCallback;
+    private static final int REQUEST_FILE_CHOOSER = 4101;
+    private static final int REQUEST_CREATE_BACKUP = 4102;
+    private byte[] pendingBackupBytes;
 
     private final BroadcastReceiver usbReceiver = new BroadcastReceiver() {
         @Override public void onReceive(Context context, Intent intent) {
@@ -52,6 +59,7 @@ public class MainActivity extends Activity {
         else registerReceiver(usbReceiver, filter);
 
         WebView web = new WebView(this);
+        webView = web;
         setContentView(web);
         WebSettings st = web.getSettings();
         st.setJavaScriptEnabled(true);
@@ -63,12 +71,36 @@ public class MainActivity extends Activity {
         web.setWebViewClient(new WebViewClient());
         web.setWebChromeClient(new WebChromeClient() {
             @Override public boolean onConsoleMessage(ConsoleMessage m) {
-                android.util.Log.e("MFIX_WEB", m.message() + " @" + m.lineNumber() + " " + m.sourceId());
+                android.util.Log.e("MFIX_WEB", m.message() + " @ " + m.lineNumber() + " " + m.sourceId());
                 return false;
+            }
+            @Override public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback, FileChooserParams params) {
+                if (fileChooserCallback != null) fileChooserCallback.onReceiveValue(null);
+                fileChooserCallback = callback;
+                try { startActivityForResult(params.createIntent(), REQUEST_FILE_CHOOSER); return true; }
+                catch (Exception ex) { fileChooserCallback=null; toast("לא ניתן לפתוח בחירת קובץ"); return false; }
             }
         });
         web.addJavascriptInterface(new PrinterBridge(), "AndroidPrinter");
         web.loadUrl("file:///android_asset/index.html");
+    }
+
+    @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_FILE_CHOOSER) {
+            if (fileChooserCallback != null) {
+                Uri[] result = resultCode == RESULT_OK && data != null ? WebChromeClient.FileChooserParams.parseResult(resultCode, data) : null;
+                fileChooserCallback.onReceiveValue(result); fileChooserCallback = null;
+            }
+            return;
+        }
+        if (requestCode == REQUEST_CREATE_BACKUP) {
+            if (resultCode == RESULT_OK && data != null && data.getData()!=null && pendingBackupBytes!=null) {
+                try { OutputStream out=getContentResolver().openOutputStream(data.getData()); out.write(pendingBackupBytes); out.close(); toast("הגיבוי נשמר בהצלחה"); }
+                catch(Exception ex){ toast("שמירת הגיבוי נכשלה: "+ex.getMessage()); }
+            } else toast("שמירת הגיבוי בוטלה");
+            pendingBackupBytes=null;
+        }
     }
 
     @Override protected void onDestroy() {
@@ -156,6 +188,17 @@ public class MainActivity extends Activity {
                 out.append("{\"index\":").append(i).append(",\"class\":").append(intf.getInterfaceClass()).append(",\"subclass\":").append(intf.getInterfaceSubclass()).append(",\"protocol\":").append(intf.getInterfaceProtocol()).append(",\"bulkOutEndpoints\":").append(bulkOut).append('}');
             }
             return out.append("]}").toString();
+        }
+
+        @JavascriptInterface public void saveTextFile(String fileName, String base64Data) {
+            try {
+                pendingBackupBytes = Base64.decode(base64Data, Base64.DEFAULT);
+                Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+                intent.addCategory(Intent.CATEGORY_OPENABLE);
+                intent.setType("application/json");
+                intent.putExtra(Intent.EXTRA_TITLE, fileName == null || fileName.length()==0 ? "mfix-pos-backup.json" : fileName);
+                startActivityForResult(intent, REQUEST_CREATE_BACKUP);
+            } catch (Exception ex) { toast("לא ניתן להכין קובץ גיבוי"); }
         }
 
         @JavascriptInterface public void reportAppError(String message) { android.util.Log.e("MFIX_APP", message == null ? "Unknown app error" : message); }
