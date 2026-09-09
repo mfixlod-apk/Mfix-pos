@@ -735,10 +735,16 @@ function computeCartCalc(){
     }
   });
   const subtotalIncl = round2(lines.reduce((a,l)=>a+l.lineTotal,0));
-  const totalDiscount = round2(lines.reduce((a,l)=>a+l.discount,0));
-  const totalIncl = round2(subtotalIncl - totalDiscount);
+  const promoDiscount = round2(lines.reduce((a,l)=>a+l.discount,0));
+  // Cart-wide manual discount is stored separately from promotion discounts.
+  // Apply it here so the cart, payment screen and completed sale all use one source of truth.
+  const manualRequested = Number(STATE.cartDiscount && STATE.cartDiscount.amount) || 0;
+  const manualDiscount = round2(Math.max(0, Math.min(manualRequested, subtotalIncl - promoDiscount)));
+  const totalDiscount = round2(promoDiscount + manualDiscount);
+  const totalIncl = round2(Math.max(0, subtotalIncl - totalDiscount));
+  if(manualDiscount>0) notes.push('הנחה ידנית על העגלה: '+money(manualDiscount));
   const vatSplit = splitVat(totalIncl);
-  return {lines, subtotalIncl, totalDiscount, totalIncl, vat:vatSplit.vat, base:vatSplit.base, notes};
+  return {lines, subtotalIncl, promoDiscount, manualDiscount, totalDiscount, totalIncl, vat:vatSplit.vat, base:vatSplit.base, notes};
 }
 
 /* ---- Loyalty points redemption ---- */
@@ -828,8 +834,15 @@ function openParkSaleModal(){
 async function parkCurrentSale(){
   if(!STATE.cart.length){closeModal();return;}
   STATE.preorders=STATE.preorders||[];
-  STATE.preorders.unshift({id:uid('parked'),status:'parked',note:document.getElementById('park_note').value.trim(),cart:JSON.parse(JSON.stringify(STATE.cart)),cartDiscount:STATE.cartDiscount?JSON.parse(JSON.stringify(STATE.cartDiscount)):null,customerId:STATE.cartCustomerId||null,customerName:STATE.docCustomerName,customerPhone:STATE.docCustomerPhone,linkedRepairId:STATE.linkedRepairId||null,createdAt:new Date().toISOString()});
-  await persistMisc(); closeModal(); clearCart(); toast('המכירה הושהתה ונשמרה','ok');
+  const parked={id:uid('parked'),status:'parked',note:document.getElementById('park_note').value.trim(),cart:JSON.parse(JSON.stringify(STATE.cart)),cartDiscount:STATE.cartDiscount?JSON.parse(JSON.stringify(STATE.cartDiscount)):null,customerId:STATE.cartCustomerId||null,customerName:STATE.docCustomerName,customerPhone:STATE.docCustomerPhone,linkedRepairId:STATE.linkedRepairId||null,createdAt:new Date().toISOString()};
+  STATE.preorders.unshift(parked);
+  try{
+    await persistMisc();
+    closeModal(); clearCart(); toast('המכירה הושהתה ונשמרה','ok');
+  }catch(e){
+    STATE.preorders=STATE.preorders.filter(x=>x.id!==parked.id);
+    toast('לא ניתן לשמור את המכירה המושהית: '+(e?.message||e),'err');
+  }
 }
 function openParkedSalesModal(){
   const list=(STATE.preorders||[]).filter(p=>p.status==='parked').sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
