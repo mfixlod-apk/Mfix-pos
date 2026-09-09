@@ -1,5 +1,10 @@
 package com.mfix.pos;
 
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
+import android.hardware.usb.UsbManager;
 import android.os.Bundle;
 import android.view.View;
 import android.view.ViewGroup;
@@ -12,6 +17,18 @@ import android.webkit.WebView;
  * the large WebView shell.
  */
 public class PatchedMainActivity extends MainActivity {
+    private WebView printerWeb;
+    private boolean usbDeviceReceiverRegistered;
+    private final BroadcastReceiver usbDeviceReceiver = new BroadcastReceiver() {
+        @Override public void onReceive(Context context, Intent intent) {
+            String action = intent == null ? null : intent.getAction();
+            if (!UsbManager.ACTION_USB_DEVICE_ATTACHED.equals(action) && !UsbManager.ACTION_USB_DEVICE_DETACHED.equals(action)) return;
+            if (printerWeb == null) return;
+            printerWeb.post(() -> printerWeb.evaluateJavascript(
+                "window.mfixRefreshPrinterConnections&&window.mfixRefreshPrinterConnections()", null));
+        }
+    };
+
     private static final String CART_DISCOUNT_PATCH =
         "(function(){" +
         "if(window.__mfixCartDiscountPatch)return;window.__mfixCartDiscountPatch=true;" +
@@ -48,6 +65,7 @@ public class PatchedMainActivity extends MainActivity {
         "function refresh(){var wrap=document.getElementById('printerProfilesWrap');if(!wrap)return;var table=wrap.querySelector('table');if(!table)return;var printers=(window.STATE.settings&&window.STATE.settings.printers)||[];var head=table.querySelector('thead tr');if(head&&!head.querySelector('.mfix-printer-status-head')){var th=document.createElement('th');th.className='mfix-printer-status-head';th.textContent='סטטוס';head.appendChild(th);var actions=document.createElement('th');actions.className='mfix-printer-tools-head';actions.textContent='כלים';head.appendChild(actions);}var rows=table.querySelectorAll('tbody tr');for(var i=0;i<rows.length;i++){var p=printers[i];if(!p)continue;var c=(String(p.type).toUpperCase()==='USB')?caps(p.address):null;var old=rows[i].querySelector('.mfix-printer-status-cell');if(old)old.remove();old=rows[i].querySelector('.mfix-printer-tools-cell');if(old)old.remove();var td=document.createElement('td');td.className='mfix-printer-status-cell';if(String(p.type).toUpperCase()!=='USB')td.innerHTML='<span class=\"pill gray\">לא נבדק</span>';else if(!window.AndroidPrinter)td.innerHTML='<span class=\"pill amber\">Bridge לא זמין</span>';else if(c&&c.connected)td.innerHTML='<span class=\"pill '+(c.authorized?'green':'amber')+'\">'+(c.authorized?'מחוברת ומורשית':'מחוברת - נדרשת הרשאה')+'</span>';else td.innerHTML='<span class=\"pill red\">לא מחוברת</span>';rows[i].appendChild(td);var tools=document.createElement('td');tools.className='mfix-printer-tools-cell';tools.innerHTML='<button class=\"btn btn-ghost mfix-diag\" type=\"button\">אבחון</button>'+(c&&c.connected?'<button class=\"btn btn-outline mfix-auth\" type=\"button\" style=\"margin-right:6px\">'+(c.authorized?'בדיקת הדפסה':'הרשאה + בדיקה')+'</button>':'');tools.querySelector('.mfix-diag').onclick=(function(id){return function(){window.mfixShowPrinterDiagnostics(id);};})(p.id);var auth=tools.querySelector('.mfix-auth');if(auth)auth.onclick=(function(id){return function(){window.mfixAuthorizeAndTestPrinter(id);};})(p.id);rows[i].appendChild(tools);}" +
         "var button=wrap.querySelector('.mfix-printer-refresh');if(!button){button=document.createElement('button');button.type='button';button.className='btn btn-outline mfix-printer-refresh';button.style.marginBottom='10px';button.textContent='↻ רענן חיבורי USB';button.onclick=refresh;wrap.insertBefore(button,wrap.firstChild);}" +
         "}" +
+        "window.mfixRefreshPrinterConnections=refresh;" +
         "window.renderPrinterProfilesWrap=function(){var r=originalRender.apply(this,arguments);setTimeout(refresh,0);return r;};" +
         "window.mfixShowPrinterDiagnostics=function(id){var p=((window.STATE.settings&&window.STATE.settings.printers)||[]).find(function(x){return x.id===id;});if(!p){if(window.toast)window.toast('המדפסת לא נמצאה','err');return;}if(!window.AndroidPrinter||typeof window.AndroidPrinter.getUsbPrinterDiagnostics!=='function'){if(window.toast)window.toast('אבחון USB זמין רק ב-APK של MFIX','err');return;}var d;try{d=JSON.parse(window.AndroidPrinter.getUsbPrinterDiagnostics(p.address||'')||'{}');}catch(e){d={connected:false,error:String(e&&e.message||e)};}var interfaces=(d.interfaces||[]).map(function(x){return '<tr><td>'+x.index+'</td><td>'+x.class+'</td><td>'+x.subclass+'</td><td>'+x.protocol+'</td><td>'+x.bulkOutEndpoints+'</td></tr>';}).join('')||'<tr><td colspan=\"5\" class=\"muted\">אין ממשקי USB זמינים</td></tr>';var body='<div class=\"modal-head\"><h3>אבחון מדפסת USB</h3><button class=\"modal-close\" onclick=\"closeModal()\">✕</button></div><div class=\"modal-body\"><div class=\"grid2\"><div><label class=\"flabel\">מדפסת</label><b>'+String(p.name||'')+'</b></div><div><label class=\"flabel\">סטטוס</label><b>'+((d.connected)?'מחוברת':'לא מחוברת')+'</b></div><div><label class=\"flabel\">הרשאת USB</label><b>'+((d.authorized)?'אושרה':'לא אושרה')+'</b></div><div><label class=\"flabel\">Vendor / Product</label><span dir=\"ltr\">'+(d.vendorId==null?'—':d.vendorId)+' / '+(d.productId==null?'—':d.productId)+'</span></div></div><div style=\"margin-top:16px\"><table class=\"tbl\"><thead><tr><th>#</th><th>Class</th><th>Subclass</th><th>Protocol</th><th>Bulk OUT</th></tr></thead><tbody>'+interfaces+'</tbody></table></div></div><div class=\"modal-foot\">'+(d.connected?'<button class=\"btn btn-primary\" onclick=\"mfixAuthorizeAndTestPrinter(\\\''+String(p.id).replace(/'/g,'')+'\\\')\">'+(d.authorized?'בדיקת הדפסה':'הרשאה + בדיקה')+'</button>':'')+'<button class=\"btn btn-ghost\" onclick=\"closeModal()\">סגור</button></div>';if(window.openModal)window.openModal(body,{wide:true});};" +
         "var originalTest=window.testDefaultPrinter;window.testDefaultPrinter=async function(){var id=(document.getElementById('st_defaultprinter')||{}).value||((window.STATE.settings||{}).defaultPrinterId);var p=((window.STATE.settings&&window.STATE.settings.printers)||[]).find(function(x){return x.id===id;});if(p&&String(p.type).toUpperCase()==='USB'&&window.AndroidPrinter&&typeof window.AndroidPrinter.getPrinterCapabilities==='function'){var c=caps(p.address);if(!c||!c.connected){if(window.toast)window.toast('המדפסת שנבחרה אינה מחוברת','err');return;}}return originalTest.apply(this,arguments);};" +
@@ -61,10 +79,26 @@ public class PatchedMainActivity extends MainActivity {
         View root = ((ViewGroup) findViewById(android.R.id.content)).getChildAt(0);
         if (root instanceof WebView) {
             WebView web = (WebView) root;
+            printerWeb = web;
+            IntentFilter usbFilter = new IntentFilter();
+            usbFilter.addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED);
+            usbFilter.addAction(UsbManager.ACTION_USB_DEVICE_DETACHED);
+            if (android.os.Build.VERSION.SDK_INT >= 33) registerReceiver(usbDeviceReceiver, usbFilter, Context.RECEIVER_NOT_EXPORTED);
+            else registerReceiver(usbDeviceReceiver, usbFilter);
+            usbDeviceReceiverRegistered = true;
             web.postDelayed(() -> {
                 web.evaluateJavascript(CART_DISCOUNT_PATCH, null);
                 web.evaluateJavascript(PRINTER_MANAGEMENT_PATCH, null);
             }, 700);
         }
+    }
+
+    @Override protected void onDestroy() {
+        if (usbDeviceReceiverRegistered) {
+            try { unregisterReceiver(usbDeviceReceiver); } catch (Exception ignored) {}
+            usbDeviceReceiverRegistered = false;
+        }
+        printerWeb = null;
+        super.onDestroy();
     }
 }
