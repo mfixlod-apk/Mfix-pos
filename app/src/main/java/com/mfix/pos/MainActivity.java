@@ -30,6 +30,10 @@ public class MainActivity extends Activity {
     private static final int REQUEST_IMPORT_INVENTORY = 4104;
     private byte[] pendingBackupBytes;
 
+    private void toast(String msg) {
+        runOnUiThread(() -> Toast.makeText(MainActivity.this, msg == null ? "" : msg, Toast.LENGTH_LONG).show());
+    }
+
     private final BroadcastReceiver usbReceiver = new BroadcastReceiver() {
         @Override public void onReceive(Context context, Intent intent) {
             if (!ACTION_USB_PERMISSION.equals(intent.getAction())) return;
@@ -201,7 +205,7 @@ public class MainActivity extends Activity {
         }
         @JavascriptInterface public String getUsbPrinterDiagnostics(String deviceName) {
             UsbDevice d = findPrinterByName(deviceName); if (d == null) return "{\"connected\":false,\"message\":\"not-found\"}"; StringBuilder out = new StringBuilder("{\"connected\":true");
-            out.append(",\"deviceName\":\"").append(escapeJson(d.getDeviceName())).append("\""); out.append(",\"displayName\":\"").append(escapeJson(deviceDisplayName(d))).append("\""); out.append(",\"vendorId\":").append(d.getVendorId()); out.append(",\"productId\":").append(d.getProductId()); out.append(",\"authorized\":").append(usbManager.hasPermission(d)); out.append(",\"candidateType\":\"").append(printerCandidateType(d)).append("\""); out.append(",\"interfaces\":[");
+            out.append(",\"deviceName\":\"").append(escapeJson(deviceDisplayName(d))).append("\""); out.append(",\"vendorId\":").append(d.getVendorId()); out.append(",\"productId\":").append(d.getProductId()); out.append(",\"authorized\":").append(usbManager.hasPermission(d)); out.append(",\"candidateType\":\"").append(printerCandidateType(d)).append("\""); out.append(",\"interfaces\":[");
             for (int i=0;i<d.getInterfaceCount();i++) { if (i>0) out.append(','); UsbInterface intf=d.getInterface(i); int bulkOut=0; for (int e=0;e<intf.getEndpointCount();e++) { UsbEndpoint ep=intf.getEndpoint(e); if(ep.getDirection()==UsbConstants.USB_DIR_OUT && ep.getType()==UsbConstants.USB_ENDPOINT_XFER_BULK) bulkOut++; } out.append("{\"index\":").append(i).append(",\"class\":").append(intf.getInterfaceClass()).append(",\"subclass\":").append(intf.getInterfaceSubclass()).append(",\"protocol\":").append(intf.getInterfaceProtocol()).append(",\"bulkOutEndpoints\":").append(bulkOut).append('}'); }
             return out.append("]}").toString();
         }
