@@ -26,6 +26,7 @@ public class MainActivity extends Activity {
     private ValueCallback<Uri[]> fileChooserCallback;
     private static final int REQUEST_FILE_CHOOSER = 4101;
     private static final int REQUEST_CREATE_BACKUP = 4102;
+    private static final int REQUEST_RESTORE_BACKUP = 4103;
     private byte[] pendingBackupBytes;
 
     private final BroadcastReceiver usbReceiver = new BroadcastReceiver() {
@@ -107,6 +108,20 @@ public class MainActivity extends Activity {
                 Uri[] result = resultCode == RESULT_OK && data != null ? WebChromeClient.FileChooserParams.parseResult(resultCode, data) : null;
                 fileChooserCallback.onReceiveValue(result); fileChooserCallback = null;
             }
+            return;
+        }
+        if (requestCode == REQUEST_RESTORE_BACKUP) {
+            if (resultCode == RESULT_OK && data != null && data.getData() != null && webView != null) {
+                try {
+                    java.io.InputStream in = getContentResolver().openInputStream(data.getData());
+                    java.io.ByteArrayOutputStream buffer = new java.io.ByteArrayOutputStream();
+                    byte[] chunk = new byte[8192]; int n;
+                    while ((n = in.read(chunk)) != -1) buffer.write(chunk, 0, n);
+                    in.close();
+                    String b64 = Base64.encodeToString(buffer.toByteArray(), Base64.NO_WRAP);
+                    webView.evaluateJavascript("window.mfixReceiveNativeBackup && window.mfixReceiveNativeBackup('" + b64 + "')", null);
+                } catch (Exception ex) { toast("לא ניתן לקרוא את קובץ הגיבוי: " + ex.getMessage()); }
+            } else toast("בחירת קובץ הגיבוי בוטלה");
             return;
         }
         if (requestCode == REQUEST_CREATE_BACKUP) {
@@ -203,6 +218,16 @@ public class MainActivity extends Activity {
                 out.append("{\"index\":").append(i).append(",\"class\":").append(intf.getInterfaceClass()).append(",\"subclass\":").append(intf.getInterfaceSubclass()).append(",\"protocol\":").append(intf.getInterfaceProtocol()).append(",\"bulkOutEndpoints\":").append(bulkOut).append('}');
             }
             return out.append("]}").toString();
+        }
+
+        @JavascriptInterface public void pickBackupFile() {
+            try {
+                Intent pick = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+                pick.addCategory(Intent.CATEGORY_OPENABLE);
+                pick.setType("application/json");
+                pick.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{"application/json","text/plain"});
+                startActivityForResult(pick, REQUEST_RESTORE_BACKUP);
+            } catch (Exception ex) { toast("לא ניתן לפתוח בחירת קובץ גיבוי"); }
         }
 
         @JavascriptInterface public void saveTextFile(String fileName, String base64Data) {
