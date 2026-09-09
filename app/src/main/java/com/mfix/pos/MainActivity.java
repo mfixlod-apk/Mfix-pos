@@ -77,8 +77,23 @@ public class MainActivity extends Activity {
             @Override public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback, FileChooserParams params) {
                 if (fileChooserCallback != null) fileChooserCallback.onReceiveValue(null);
                 fileChooserCallback = callback;
-                try { startActivityForResult(params.createIntent(), REQUEST_FILE_CHOOSER); return true; }
-                catch (Exception ex) { fileChooserCallback=null; toast("לא ניתן לפתוח בחירת קובץ"); return false; }
+                try {
+                    // Use Android's document picker explicitly. This is more reliable for hidden
+                    // HTML file inputs triggered from the inventory import button in WebView.
+                    Intent pick = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+                    pick.addCategory(Intent.CATEGORY_OPENABLE);
+                    pick.setType("*/*");
+                    pick.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{
+                        "text/csv","text/plain","application/vnd.ms-excel",
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    });
+                    pick.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, params.getMode() == FileChooserParams.MODE_OPEN_MULTIPLE);
+                    startActivityForResult(pick, REQUEST_FILE_CHOOSER);
+                    return true;
+                } catch (Exception ex) {
+                    try { startActivityForResult(params.createIntent(), REQUEST_FILE_CHOOSER); return true; }
+                    catch (Exception ignored) { fileChooserCallback=null; toast("לא ניתן לפתוח בחירת קובץ"); return false; }
+                }
             }
         });
         web.addJavascriptInterface(new PrinterBridge(), "AndroidPrinter");
