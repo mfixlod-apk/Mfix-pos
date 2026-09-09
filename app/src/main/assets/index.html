@@ -2170,7 +2170,7 @@ async function ensureSheetJS(){
     document.head.appendChild(s);
   });
 }
-async function handleInventoryImportFile(file){
+async async function handleInventoryImportFile(file){
   if(!file) return;
   inventoryImportFileName=file.name||'';
   try{
