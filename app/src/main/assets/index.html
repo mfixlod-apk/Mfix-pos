@@ -1216,21 +1216,15 @@ function openRepairPickup(){
 }
 
 async function saveRepairAndPrint(repairId){
-  // Open/claim USB immediately inside the real user click.
-  let device,endpoint;
-  try{
-    device=await mfixGetUsbPrinter();
-    endpoint=await mfixOpenUsbOutEndpoint(device);
-  }catch(e){
-    alert('לא ניתן לפתוח את המדפסת:\\n\\n'+(e?.message||e));
-    return;
-  }
-
+  // Save first, then use the same proven native Android print path as saved repair tickets.
   const id=await saveRepair(repairId);
   if(!id)return;
+  await printRepairTicket(id);
+  return;
+
+  /* legacy WebUSB path retained below but intentionally unreachable */ 
   const r=STATE.repairs.find(x=>x.id===id);
   if(!r)return;
-
   try{
     const receiptHtml=buildRepairThermalHTML(r);
     const {raster,height,bytesPerLine}=await mfixReceiptToRaster(receiptHtml);
@@ -3386,9 +3380,19 @@ function exportBackup(){
     auditLog:STATE.auditLog||[], inventoryHistory:STATE.inventoryHistory||[],
     shifts:STATE.shifts||[], currentShift:STATE.currentShift||null
   };
-  const blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'});
+  const filename = 'mfix-pos-backup-'+new Date().toISOString().slice(0,10)+'.json';
+  const json = JSON.stringify(data,null,2);
+  // Android WebView cannot reliably download blob: URLs. Use the native bridge when available.
+  if(window.AndroidPrinter && typeof AndroidPrinter.saveTextFile==='function'){
+    const bytes = new TextEncoder().encode(json);
+    let binary=''; bytes.forEach(b=>binary+=String.fromCharCode(b));
+    AndroidPrinter.saveTextFile(filename,btoa(binary));
+    toast('בחר מיקום לשמירת קובץ הגיבוי','ok');
+    return;
+  }
+  const blob = new Blob([json], {type:'application/json'});
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-  a.download = 'mfix-pos-backup-'+new Date().toISOString().slice(0,10)+'.json'; a.click();
+  a.download = filename; a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href),1000);
 }
 function importBackup(evt){
