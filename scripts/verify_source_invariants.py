@@ -50,6 +50,24 @@ def main() -> int:
     require(html, "if(l.isManual || l.isGiftCardSale || l.linkedPreorderId || l.isPart) continue;",
             "manual sale bypasses inventory lookup during checkout", errors)
 
+    # Discount must flow from the cart state into the authoritative cart calculation.
+    require(html, "function openCartDiscountModal()", "cart discount modal remains available", errors)
+    require(html, "function applyCartDiscount()", "cart discount apply action remains available", errors)
+    require(html, "manualRequested = Number(STATE.cartDiscount && STATE.cartDiscount.amount)",
+            "manual cart discount is consumed by cart calculation", errors)
+    require(html, "manualDiscount", "manual discount contributes to cart totals", errors)
+    require(html, "totalDiscount = round2(promoDiscount + manualDiscount)",
+            "promotion and manual discounts are combined exactly once", errors)
+
+    # Suspended sales must persist before the live cart is cleared, and resume from persisted state.
+    require(html, "async function parkCurrentSale()", "park sale action remains available", errors)
+    require(html, "await persistMisc();", "parked sales persist before clearing cart", errors)
+    require(html, "STATE.preorders.unshift(parked);", "parked sale is staged for persistence", errors)
+    require(html, "STATE.preorders=STATE.preorders.filter(x=>x.id!==parked.id);",
+            "failed parked-sale persistence rolls back in-memory state", errors)
+    require(html, "function resumeParkedSale(id)", "parked sales can be resumed", errors)
+    require(html, "cartDiscount=p.cartDiscount", "parked-sale discount is restored", errors)
+
     require(html, "paymentRows[${idx}].reference=this.value", "payment reference input remains available", errors)
     require(html, "reference:['bit','check','transfer'].includes(r.method)", "payment reference is persisted on the sale", errors)
     require(html, "יש להזין מספר צ׳ק", "check reference validation remains present", errors)
@@ -85,6 +103,8 @@ def main() -> int:
         ("requestUsbPrinterTest", "USB permission/test flow"),
         ("printEscPosToDevice", "ESC/POS printing"),
         ("openCashDrawer", "cash drawer pulse"),
+        ("saveTextFile", "native Android backup file export"),
+        ("onShowFileChooser", "native Android backup import file chooser"),
     ):
         require(bridge, needle, label, errors)
 
