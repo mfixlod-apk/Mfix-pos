@@ -77,6 +77,12 @@ def main() -> int:
     require(runtime, "10 מוצרים מובילים", "top-products report remains present", errors)
     require(runtime, "אמצעי תשלום", "payment-method report breakdown remains present", errors)
 
+    # Inventory import must have both the async reader and the native Android handoff.
+    require(html, "async function handleInventoryImportFile(file)", "inventory import reader is asynchronous", errors)
+    require(html, "function commitInventoryImport()", "inventory import commit path remains present", errors)
+    require(inventory, "mfixReceiveNativeInventory", "native inventory import receiver remains installed", errors)
+    require(inventory, "AndroidPrinter.pickInventoryFile", "native inventory picker remains connected", errors)
+
     launcher_ok = any(name in manifest for name in (
         'android:name=".PatchedMainActivity"',
         'android:name=".RuntimeSafetyPatchActivity"',
@@ -94,18 +100,17 @@ def main() -> int:
     require(runtime, "extends PatchedMainActivity", "runtime safety wrapper preserves printer patch chain", errors)
     require(yesh, "extends BackupRestorePatchActivity", "Yesh Invoice layer preserves previous runtime chain", errors)
     require(yesh, "mfixOpenYeshInvoiceSettings", "Yesh Invoice settings entry point remains present", errors)
-    require(inventory, "mfixReceiveNativeInventory", "native inventory import receiver remains installed", errors)
-    require(inventory, "AndroidPrinter.pickInventoryFile", "native inventory picker remains connected", errors)
 
     for needle, label in (
         ("listUsbPrinters", "USB printer discovery"),
         ("getPrinterCapabilities", "printer capability diagnostics"),
         ("getUsbPrinterDiagnostics", "USB printer diagnostics"),
         ("requestUsbPrinterTest", "USB permission/test flow"),
+        ("printRasterToDevice", "selected-printer raster printing"),
         ("printEscPosToDevice", "ESC/POS printing"),
         ("openCashDrawer", "cash drawer pulse"),
         ("saveTextFile", "native Android backup file export"),
-        ("onShowFileChooser", "native Android backup import file chooser"),
+        ("onShowFileChooser", "native Android file chooser"),
     ):
         require(bridge, needle, label, errors)
 
