@@ -21,8 +21,9 @@ public class InventoryImportPatchActivity extends YeshInvoicePatchActivity {
         "window.mfixReceiveNativeInventory=function(b64,name){try{"+
         "var bin=atob(b64),bytes=new Uint8Array(bin.length);for(var i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);"+
         "var file=new File([bytes],name||'inventory.csv',{type:'application/octet-stream'});"+
-        "if(typeof window.handleInventoryImportFile!=='function'){toast('מנגנון ייבוא המלאי עדיין נטען','err');return;}"+
-        "Promise.resolve(window.handleInventoryImportFile(file)).catch(function(e){console.error(e);toast('שגיאה בייבוא המלאי: '+(e&&e.message?e.message:'שגיאה'),'err');});"+
+        "function run(attempt){if(typeof window.handleInventoryImportFile!=='function'){if(attempt<30){setTimeout(function(){run(attempt+1);},250);return;}toast('מנגנון ייבוא המלאי לא נטען','err');return;}"+
+        "Promise.resolve(window.handleInventoryImportFile(file)).then(function(){console.log('[MFIX] native inventory import completed');}).catch(function(e){console.error(e);toast('שגיאה בייבוא המלאי: '+(e&&e.message?e.message:'שגיאה'),'err');});}"+
+        "run(0);"+
         "}catch(e){console.error(e);toast('לא ניתן לקרוא את קובץ המלאי','err');}};"+
         "window.openInventoryImport=function(){if(window.AndroidPrinter&&typeof AndroidPrinter.pickInventoryFile==='function'){AndroidPrinter.pickInventoryFile();return;}toast('ייבוא מלאי Android אינו זמין','err');};"+
         "window.__mfixAutoPrintAfterSale=function(sale){try{if(!sale||!window.STATE||!window.STATE.settings||window.STATE.settings.printerAutoPrint===false)return;if(typeof window.printDoc!=='function')return;setTimeout(function(){try{window.printDoc(sale.id);}catch(e){console.error('[MFIX AUTO PRINT]',e);}},350);}catch(e){console.error('[MFIX AUTO PRINT HOOK]',e);}};"+
@@ -31,11 +32,11 @@ public class InventoryImportPatchActivity extends YeshInvoicePatchActivity {
         "if(!window.AndroidPrinter||typeof AndroidPrinter.getUsbPrinterDiagnostics!=='function'){toast('אבחון USB אינו זמין בגרסה זו','err');return;}"+
         "var raw=AndroidPrinter.getUsbPrinterDiagnostics(deviceName||'');var d=JSON.parse(raw||'{}');"+
         "var interfaces=(d.interfaces||[]).map(function(x){return '<tr><td>'+x.index+'</td><td>'+x.class+'</td><td>'+x.subclass+'</td><td>'+x.protocol+'</td><td>'+x.bulkOutEndpoints+'</td></tr>';}).join('');"+
-        "var html='<div class=\\\"modal-head\\\"><h3>🧪 אבחון מדפסת USB</h3><button class=\\\"modal-close\\\" onclick=\\\"closeModal()\\\">✕</button></div>'+
-        "'<div class=\\\"modal-body\\\"><div class=\\\"card\\\" style=\\\"background:var(--gray-50);margin-bottom:12px\\\">'+
-        "'<b>'+((d.deviceName||'USB Printer'))+'</b><div style=\\\"font-size:12px;margin-top:5px\\\">VID: '+(d.vendorId??'—')+' | PID: '+(d.productId??'—')+' | הרשאה: '+(d.authorized?'כן':'לא')+' | סוג: '+(d.candidateType||'—')+'</div></div>'+
-        "'<table class=\\\"tbl\\\"><thead><tr><th>ממשק</th><th>Class</th><th>SubClass</th><th>Protocol</th><th>Bulk OUT</th></tr></thead><tbody>'+interfaces+'</tbody></table>'+
-        "'<div style=\\\"margin-top:12px;font-size:12px;color:var(--gray-500)\\\">יכולות המנגנון המדווחות: USB Bulk, ESC/POS, Raster ומגירת מזומן. האבחון מתאר את יכולות החיבור — הוא אינו הוכחה שהמדפסת הפיזית הדפיסה.</div></div>'+
+        "var html='<div class=\\\"modal-head\\\"><h3>🧪 אבחון מדפסת USB</h3><button class=\\\"modal-close\\\" onclick=\\\"closeModal()\\\">✕</button></div>'+"+
+        "'<div class=\\\"modal-body\\\"><div class=\\\"card\\\" style=\\\"background:var(--gray-50);margin-bottom:12px\\\">'+"+
+        "'<b>'+((d.deviceName||'USB Printer'))+'</b><div style=\\\"font-size:12px;margin-top:5px\\\">VID: '+(d.vendorId??'—')+' | PID: '+(d.productId??'—')+' | הרשאה: '+(d.authorized?'כן':'לא')+' | סוג: '+(d.candidateType||'—')+'</div></div>'+"+
+        "'<table class=\\\"tbl\\\"><thead><tr><th>ממשק</th><th>Class</th><th>SubClass</th><th>Protocol</th><th>Bulk OUT</th></tr></thead><tbody>'+interfaces+'</tbody></table>'+"+
+        "'<div style=\\\"margin-top:12px;font-size:12px;color:var(--gray-500)\\\">יכולות המנגנון המדווחות: USB Bulk, ESC/POS, Raster ומגירת מזומן. האבחון מתאר את יכולות החיבור — הוא אינו הוכחה שהמדפסת הפיזית הדפיסה.</div></div>'+"+
         "'<div class=\\\"modal-foot\\\"><button class=\\\"btn btn-primary\\\" onclick=\\\"closeModal()\\\">סגור</button></div>';"+
         "openModal(html,{wide:true});"+
         "}catch(e){console.error('[MFIX PRINTER DIAGNOSTICS]',e);toast('אבחון המדפסת נכשל: '+(e&&e.message?e.message:'שגיאה'),'err');}};"+
@@ -84,6 +85,7 @@ public class InventoryImportPatchActivity extends YeshInvoicePatchActivity {
             int n;
             while((n=in.read(chunk))!=-1) buffer.write(chunk,0,n);
             in.close();
+            if(buffer.size()>50*1024*1024) throw new java.io.IOException("הקובץ גדול מדי (מקסימום 50MB)");
             String b64 = Base64.encodeToString(buffer.toByteArray(), Base64.NO_WRAP);
             String safeName = WebViewEscape(name);
             final String js = "window.mfixReceiveNativeInventory && window.mfixReceiveNativeInventory('" + b64 + "','" + safeName + "')";
