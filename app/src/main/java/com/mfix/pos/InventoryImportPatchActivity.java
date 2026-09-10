@@ -10,6 +10,7 @@ import android.util.Base64;
 import android.view.View;
 import android.view.ViewGroup;
 import android.webkit.WebView;
+import android.widget.Toast;
 
 /** Native inventory import bridge. Reads CSV/XLS/XLSX through Android's document picker and hands bytes to the existing JS importer. */
 public class InventoryImportPatchActivity extends YeshInvoicePatchActivity {
@@ -26,6 +27,10 @@ public class InventoryImportPatchActivity extends YeshInvoicePatchActivity {
         "window.openInventoryImport=function(){if(window.AndroidPrinter&&typeof AndroidPrinter.pickInventoryFile==='function'){AndroidPrinter.pickInventoryFile();return;}toast('ייבוא מלאי Android אינו זמין','err');};"+
         "var el=document.getElementById('inventoryImportFile');if(el){el.style.display='block';el.style.position='fixed';el.style.left='0';el.style.top='0';el.style.width='1px';el.style.height='1px';el.style.opacity='0.01';el.style.zIndex='-1';}"+
         "}install();setInterval(install,1000);console.log('[MFIX] native inventory import bridge active');})();";
+
+    private void toast(String msg){
+        runOnUiThread(() -> Toast.makeText(InventoryImportPatchActivity.this, msg == null ? "" : msg, Toast.LENGTH_LONG).show());
+    }
 
     @Override protected void onCreate(Bundle savedInstanceState){
         super.onCreate(savedInstanceState);
