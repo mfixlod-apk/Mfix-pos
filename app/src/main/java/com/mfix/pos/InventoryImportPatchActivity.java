@@ -25,8 +25,10 @@ public class InventoryImportPatchActivity extends YeshInvoicePatchActivity {
         "Promise.resolve(window.handleInventoryImportFile(file)).catch(function(e){console.error(e);toast('שגיאה בייבוא המלאי: '+(e&&e.message?e.message:'שגיאה'),'err');});"+
         "}catch(e){console.error(e);toast('לא ניתן לקרוא את קובץ המלאי','err');}};"+
         "window.openInventoryImport=function(){if(window.AndroidPrinter&&typeof AndroidPrinter.pickInventoryFile==='function'){AndroidPrinter.pickInventoryFile();return;}toast('ייבוא מלאי Android אינו זמין','err');};"+
+        "window.__mfixAutoPrintAfterSale=function(sale){try{if(!sale||!window.STATE||!window.STATE.settings||window.STATE.settings.printerAutoPrint===false)return;if(typeof window.printDoc!=='function')return;setTimeout(function(){try{window.printDoc(sale.id);}catch(e){console.error('[MFIX AUTO PRINT]',e);}},350);}catch(e){console.error('[MFIX AUTO PRINT HOOK]',e);}};"+
+        "if(!window.__mfixFinalizeAutoPrintHook){window.__mfixFinalizeAutoPrintHook=true;var wait=0;function hook(){if(typeof window.finalizeSale!=='function'){if(wait++<40)setTimeout(hook,250);return;}var original=window.finalizeSale;window.finalizeSale=async function(){var before=window.STATE&&Array.isArray(window.STATE.sales)?window.STATE.sales.length:0;var result=await original.apply(this,arguments);var after=window.STATE&&Array.isArray(window.STATE.sales)?window.STATE.sales.length:0;if(after>before&&window.STATE.settings&&window.STATE.settings.printerAutoPrint!==false){window.__mfixAutoPrintAfterSale(window.STATE.sales[after-1]);}return result;};}hook();}"+
         "var el=document.getElementById('inventoryImportFile');if(el){el.style.display='block';el.style.position='fixed';el.style.left='0';el.style.top='0';el.style.width='1px';el.style.height='1px';el.style.opacity='0.01';el.style.zIndex='-1';}"+
-        "}install();setInterval(install,1000);console.log('[MFIX] native inventory import bridge active');})();";
+        "}install();setInterval(install,1000);console.log('[MFIX] native inventory import + auto print bridge active');})();";
 
     private void toast(String msg){
         runOnUiThread(() -> Toast.makeText(InventoryImportPatchActivity.this, msg == null ? "" : msg, Toast.LENGTH_LONG).show());
