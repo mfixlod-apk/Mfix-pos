@@ -10,6 +10,7 @@ PATCHED = ROOT / "app/src/main/java/com/mfix/pos/PatchedMainActivity.java"
 RUNTIME = ROOT / "app/src/main/java/com/mfix/pos/RuntimeSafetyPatchActivity.java"
 YESH = ROOT / "app/src/main/java/com/mfix/pos/YeshInvoicePatchActivity.java"
 MAIN = ROOT / "app/src/main/java/com/mfix/pos/MainActivity.java"
+INVENTORY = ROOT / "app/src/main/java/com/mfix/pos/InventoryImportPatchActivity.java"
 
 
 def require(text: str, needle: str, label: str, errors: list[str]) -> None:
@@ -19,7 +20,7 @@ def require(text: str, needle: str, label: str, errors: list[str]) -> None:
 
 def main() -> int:
     errors: list[str] = []
-    for path in (INDEX, MANIFEST, PATCHED, RUNTIME, YESH, MAIN):
+    for path in (INDEX, MANIFEST, PATCHED, RUNTIME, YESH, MAIN, INVENTORY):
         if not path.is_file():
             errors.append(f"Required source file missing: {path.relative_to(ROOT)}")
     if errors:
@@ -32,6 +33,7 @@ def main() -> int:
     runtime = RUNTIME.read_text(encoding="utf-8")
     yesh = YESH.read_text(encoding="utf-8")
     bridge = MAIN.read_text(encoding="utf-8")
+    inventory = INVENTORY.read_text(encoding="utf-8")
 
     require(html, "'inventoryHistory'", "inventory history is part of persisted misc data", errors)
     require(html, "inventoryHistory:[]", "inventory history exists in application state", errors)
@@ -43,14 +45,11 @@ def main() -> int:
     require(runtime, "originalFinalize=window.finalizeSale", "checkout guard wraps the real finalization flow", errors)
     require(runtime, "המכירה כבר בתהליך", "duplicate checkout feedback remains present", errors)
 
-    # Manual sales are intentionally not inventory-backed. Keep the full path protected:
-    # entry modal -> cart marker -> checkout stock-validation bypass.
     require(html, "function openManualSaleModal()", "manual sale entry modal remains available", errors)
     require(html, "isManual:true", "manual sale lines retain their explicit marker", errors)
     require(html, "if(l.isManual || l.isGiftCardSale || l.linkedPreorderId || l.isPart) continue;",
             "manual sale bypasses inventory lookup during checkout", errors)
 
-    # Discount must flow from the cart state into the authoritative cart calculation.
     require(html, "function openCartDiscountModal()", "cart discount modal remains available", errors)
     require(html, "function applyCartDiscount()", "cart discount apply action remains available", errors)
     require(html, "manualRequested = Number(STATE.cartDiscount && STATE.cartDiscount.amount)",
@@ -59,7 +58,6 @@ def main() -> int:
     require(html, "totalDiscount = round2(promoDiscount + manualDiscount)",
             "promotion and manual discounts are combined exactly once", errors)
 
-    # Suspended sales must persist before the live cart is cleared, and resume from persisted state.
     require(html, "async function parkCurrentSale()", "park sale action remains available", errors)
     require(html, "await persistMisc();", "parked sales persist before clearing cart", errors)
     require(html, "STATE.preorders.unshift(parked);", "parked sale is staged for persistence", errors)
@@ -83,6 +81,7 @@ def main() -> int:
         'android:name=".PatchedMainActivity"',
         'android:name=".RuntimeSafetyPatchActivity"',
         'android:name=".YeshInvoicePatchActivity"',
+        'android:name=".InventoryImportPatchActivity"',
     ))
     if not launcher_ok:
         errors.append("Missing invariant: manifest launches a supported patched activity")
@@ -95,6 +94,8 @@ def main() -> int:
     require(runtime, "extends PatchedMainActivity", "runtime safety wrapper preserves printer patch chain", errors)
     require(yesh, "extends BackupRestorePatchActivity", "Yesh Invoice layer preserves previous runtime chain", errors)
     require(yesh, "mfixOpenYeshInvoiceSettings", "Yesh Invoice settings entry point remains present", errors)
+    require(inventory, "mfixReceiveNativeInventory", "native inventory import receiver remains installed", errors)
+    require(inventory, "AndroidPrinter.pickInventoryFile", "native inventory picker remains connected", errors)
 
     for needle, label in (
         ("listUsbPrinters", "USB printer discovery"),
