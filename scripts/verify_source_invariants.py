@@ -82,6 +82,8 @@ def main() -> int:
     require(html, "function commitInventoryImport()", "inventory import commit path remains present", errors)
     require(inventory, "mfixReceiveNativeInventory", "native inventory import receiver remains installed", errors)
     require(inventory, "AndroidPrinter.pickInventoryFile", "native inventory picker remains connected", errors)
+    require(inventory, "OpenableColumns.DISPLAY_NAME", "native inventory import preserves the provider filename", errors)
+    require(inventory, "resolveDisplayName", "native inventory import resolves the real file extension", errors)
 
     launcher_ok = any(name in manifest for name in (
         'android:name=".PatchedMainActivity"',
