@@ -11,6 +11,7 @@ RUNTIME = ROOT / "app/src/main/java/com/mfix/pos/RuntimeSafetyPatchActivity.java
 YESH = ROOT / "app/src/main/java/com/mfix/pos/YeshInvoicePatchActivity.java"
 MAIN = ROOT / "app/src/main/java/com/mfix/pos/MainActivity.java"
 INVENTORY = ROOT / "app/src/main/java/com/mfix/pos/InventoryImportPatchActivity.java"
+INVENTORY_MGMT = ROOT / "app/src/main/java/com/mfix/pos/InventoryManagementPatchActivity.java"
 
 
 def require(text: str, needle: str, label: str, errors: list[str]) -> None:
@@ -20,7 +21,7 @@ def require(text: str, needle: str, label: str, errors: list[str]) -> None:
 
 def main() -> int:
     errors: list[str] = []
-    for path in (INDEX, MANIFEST, PATCHED, RUNTIME, YESH, MAIN, INVENTORY):
+    for path in (INDEX, MANIFEST, PATCHED, RUNTIME, YESH, MAIN, INVENTORY, INVENTORY_MGMT):
         if not path.is_file():
             errors.append(f"Required source file missing: {path.relative_to(ROOT)}")
     if errors:
@@ -34,6 +35,7 @@ def main() -> int:
     yesh = YESH.read_text(encoding="utf-8")
     bridge = MAIN.read_text(encoding="utf-8")
     inventory = INVENTORY.read_text(encoding="utf-8")
+    inventory_mgmt = INVENTORY_MGMT.read_text(encoding="utf-8")
 
     require(html, "'inventoryHistory'", "inventory history is part of persisted misc data", errors)
     require(html, "inventoryHistory:[]", "inventory history exists in application state", errors)
@@ -84,12 +86,16 @@ def main() -> int:
     require(inventory, "AndroidPrinter.pickInventoryFile", "native inventory picker remains connected", errors)
     require(inventory, "OpenableColumns.DISPLAY_NAME", "native inventory import preserves the provider filename", errors)
     require(inventory, "resolveDisplayName", "native inventory import resolves the real file extension", errors)
+    require(inventory_mgmt, "mfixInventoryTools", "inventory management tools remain installed", errors)
+    require(inventory_mgmt, "היסטוריית מלאי", "inventory history UI remains installed", errors)
+    require(inventory_mgmt, "IMEI / סידורי", "inventory serial/IMEI editing remains installed", errors)
 
     launcher_ok = any(name in manifest for name in (
         'android:name=".PatchedMainActivity"',
         'android:name=".RuntimeSafetyPatchActivity"',
         'android:name=".YeshInvoicePatchActivity"',
         'android:name=".InventoryImportPatchActivity"',
+        'android:name=".InventoryManagementPatchActivity"',
     ))
     if not launcher_ok:
         errors.append("Missing invariant: manifest launches a supported patched activity")
