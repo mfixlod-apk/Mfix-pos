@@ -6,7 +6,7 @@ import android.view.ViewGroup;
 import android.webkit.WebView;
 
 /** Runtime backup/restore layer. Restore validates the file and persists through the app's real storage API. */
-public class BackupRestorePatchActivity extends UsersPermissionsPatchActivity {
+public class BackupRestorePatchActivity extends ReportsExportPatchActivity {
     private static final String PATCH =
         "(function(){if(window.__mfixBackupPatch)return;window.__mfixBackupPatch=true;"+
         "function install(){if(!window.STATE||typeof window.openModal!=='function'){setTimeout(install,250);return;}"+
