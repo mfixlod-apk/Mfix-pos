@@ -6,7 +6,7 @@ import android.view.ViewGroup;
 import android.webkit.WebView;
 
 /** Adds a practical multi-method payment dialog to the existing POS WebView. */
-public class PaymentManagementPatchActivity extends ReportsExportPatchActivity {
+public class PaymentManagementPatchActivity extends UsersPermissionsPatchActivity {
     private static final String PATCH =
         "(function(){" +
         "if(window.__mfixPaymentManagementPatch)return;window.__mfixPaymentManagementPatch=true;" +
