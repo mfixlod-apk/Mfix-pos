@@ -6,7 +6,7 @@ import android.view.ViewGroup;
 import android.webkit.WebView;
 
 /** Routes automatic receipt printing through the existing raster USB print pipeline. */
-public class ReceiptPrintingPatchActivity extends ReportsDashboardPatchActivity {
+public class ReceiptPrintingPatchActivity extends ProductSerialManagementPatchActivity {
     private static final String PATCH =
         "(function(){if(window.__mfixReceiptPrintingV1)return;window.__mfixReceiptPrintingV1=true;"+
         "function settings(){try{return JSON.parse(localStorage.getItem('mfix_printer_settings_v1')||'{}');}catch(e){return {};}}"+
