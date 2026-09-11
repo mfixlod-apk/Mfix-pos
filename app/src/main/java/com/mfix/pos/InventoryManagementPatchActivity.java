@@ -6,7 +6,7 @@ import android.view.ViewGroup;
 import android.webkit.WebView;
 
 /** Adds product editing and stock-history access without replacing the existing inventory UI. */
-public class InventoryManagementPatchActivity extends PrinterManagementPatchActivity {
+public class InventoryManagementPatchActivity extends ReportsDashboardPatchActivity {
     private static final String PATCH =
         "(function(){if(window.__mfixInventoryManagement)return;window.__mfixInventoryManagement=true;"+
         "function esc(s){return String(s==null?'':s).replace(/[&<>\\\"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','\\\"':'&quot;',\"'\":'&#39;'}[c];});}"+
