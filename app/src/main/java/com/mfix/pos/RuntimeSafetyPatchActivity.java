@@ -8,8 +8,11 @@ import android.webkit.WebView;
 /**
  * Runtime safety layer for business-logic fixes that must be applied
  * without duplicating the embedded single-page POS application.
+ *
+ * The inheritance chain intentionally includes ReportsExportPatchActivity so
+ * every later patch receives the reports/inventory/printer layers as well.
  */
-public class RuntimeSafetyPatchActivity extends PatchedMainActivity {
+public class RuntimeSafetyPatchActivity extends ReportsExportPatchActivity {
     private static final String RETURN_AND_IMPORT_PATCH =
         "(function(){" +
         "if(window.__mfixReturnImportSafetyPatch)return;window.__mfixReturnImportSafetyPatch=true;" +
