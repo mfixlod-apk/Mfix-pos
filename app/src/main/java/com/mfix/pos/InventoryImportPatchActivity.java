@@ -13,7 +13,7 @@ import android.webkit.WebView;
 import android.widget.Toast;
 
 /** Native inventory import bridge plus printer diagnostics/checkout runtime hooks. */
-public class InventoryImportPatchActivity extends MainActivity {
+public class InventoryImportPatchActivity extends PatchedMainActivity {
     private static final int REQUEST_IMPORT_INVENTORY = 4104;
     private static final String PATCH =
         "(function(){if(window.__mfixNativeInventoryImport)return;window.__mfixNativeInventoryImport=true;"+
@@ -25,7 +25,7 @@ public class InventoryImportPatchActivity extends MainActivity {
         "Promise.resolve(window.handleInventoryImportFile(file)).then(function(){console.log('[MFIX] native inventory import completed');}).catch(function(e){console.error(e);toast('שגיאה בייבוא המלאי: '+(e&&e.message?e.message:'שגיאה'),'err');});}"+
         "run(0);"+
         "}catch(e){console.error(e);toast('לא ניתן לקרוא את קובץ המלאי','err');}};"+
-        "window.openInventoryImport=function(){if(window.AndroidPrinter&&typeof AndroidPrinter.pickInventoryFile==='function'){AndroidPrinter.pickInventoryFile();return;}toast('ייבוא מלאי Android אינו זמין','err');};"+
+        "window.openInventoryImport=function(){if(window.AndroidPrinter&&typeof window.AndroidPrinter.pickInventoryFile==='function'){window.AndroidPrinter.pickInventoryFile();return;}toast('ייבוא מלאי Android אינו זמין','err');};"+
         "window.__mfixAutoPrintAfterSale=function(sale){try{if(!sale||!window.STATE||!window.STATE.settings||window.STATE.settings.printerAutoPrint===false)return;if(typeof window.printDoc!=='function')return;setTimeout(function(){try{window.printDoc(sale.id);}catch(e){console.error('[MFIX AUTO PRINT]',e);}},350);}catch(e){console.error('[MFIX AUTO PRINT HOOK]',e);}};"+
         "if(!window.__mfixFinalizeAutoPrintHook){window.__mfixFinalizeAutoPrintHook=true;var wait=0;function hook(){if(typeof window.finalizeSale!=='function'){if(wait++<40)setTimeout(hook,250);return;}var original=window.finalizeSale;window.finalizeSale=async function(){var before=window.STATE&&Array.isArray(window.STATE.sales)?window.STATE.sales.length:0;var result=await original.apply(this,arguments);var after=window.STATE&&Array.isArray(window.STATE.sales)?window.STATE.sales.length:0;if(after>before&&window.STATE.settings&&window.STATE.settings.printerAutoPrint!==false){window.__mfixAutoPrintAfterSale(window.STATE.sales[after-1]);}return result;};}hook();}"+
         "}install();console.log('[MFIX] native inventory import patch active');})();";
@@ -45,6 +45,20 @@ public class InventoryImportPatchActivity extends MainActivity {
         startActivityForResult(intent, REQUEST_IMPORT_INVENTORY);
     }
 
+    /** Resolves the provider's real display filename, preserving .csv/.xlsx/etc. */
+    private String resolveDisplayName(Uri uri) {
+        if (uri == null) return null;
+        Cursor cursor = null;
+        try {
+            cursor = getContentResolver().query(uri,new String[]{OpenableColumns.DISPLAY_NAME},null,null,null);
+            if (cursor != null && cursor.moveToFirst()) return cursor.getString(0);
+        } catch (Exception ignored) {
+        } finally {
+            if (cursor != null) cursor.close();
+        }
+        return null;
+    }
+
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode != REQUEST_IMPORT_INVENTORY || resultCode != Activity.RESULT_OK || data == null || data.getData() == null) return;
@@ -55,14 +69,9 @@ public class InventoryImportPatchActivity extends MainActivity {
             byte[] buf = new byte[8192]; int n;
             while (in != null && (n = in.read(buf)) != -1) out.write(buf,0,n);
             if (in != null) in.close();
-            String name = null;
-            Cursor cursor = null;
-            try {
-                cursor = getContentResolver().query(uri,new String[]{OpenableColumns.DISPLAY_NAME},null,null,null);
-                if (cursor != null && cursor.moveToFirst()) name = cursor.getString(0);
-            } finally { if (cursor != null) cursor.close(); }
             final String payload = Base64.encodeToString(out.toByteArray(),Base64.NO_WRAP);
-            final String fileName = name == null ? "inventory.csv" : name;
+            String resolved = resolveDisplayName(uri);
+            final String fileName = resolved == null || resolved.trim().isEmpty() ? "inventory.csv" : resolved;
             View root = ((ViewGroup)findViewById(android.R.id.content)).getChildAt(0);
             if (root instanceof WebView) ((WebView)root).evaluateJavascript("window.mfixReceiveNativeInventory("+org.json.JSONObject.quote(payload)+","+org.json.JSONObject.quote(fileName)+");",null);
         } catch (Exception e) {
