@@ -96,6 +96,7 @@ def main() -> int:
         'android:name=".YeshInvoicePatchActivity"',
         'android:name=".InventoryImportPatchActivity"',
         'android:name=".InventoryManagementPatchActivity"',
+        'android:name=".CheckoutCompletionPatchActivity"',
     ))
     if not launcher_ok:
         errors.append("Missing invariant: manifest launches a supported patched activity")
@@ -105,7 +106,8 @@ def main() -> int:
     require(patched, "ACTION_USB_DEVICE_ATTACHED", "USB attach events refresh printer status", errors)
     require(patched, "ACTION_USB_DEVICE_DETACHED", "USB detach events refresh printer status", errors)
     require(patched, "window.mfixRefreshPrinterConnections=refresh", "native USB events can trigger printer UI refresh", errors)
-    require(runtime, "extends PatchedMainActivity", "runtime safety wrapper preserves printer patch chain", errors)
+    require(inventory, "extends PatchedMainActivity", "inventory import preserves the native patched printer/runtime chain", errors)
+    require(runtime, "extends ReportsExportPatchActivity", "runtime safety wrapper preserves the complete reports/printer chain", errors)
     require(yesh, "extends BackupRestorePatchActivity", "Yesh Invoice layer preserves previous runtime chain", errors)
     require(yesh, "mfixOpenYeshInvoiceSettings", "Yesh Invoice settings entry point remains present", errors)
 
