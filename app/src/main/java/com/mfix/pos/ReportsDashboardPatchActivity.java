@@ -6,7 +6,7 @@ import android.view.ViewGroup;
 import android.webkit.WebView;
 
 /** Adds a non-destructive reports summary/filter layer over the existing reports UI. */
-public class ReportsDashboardPatchActivity extends DataIntegrityBasePatchActivity {
+public class ReportsDashboardPatchActivity extends DataIntegrityPatchActivity {
     private static final String PATCH =
         "(function(){if(window.__mfixReportsDashboardPatch)return;window.__mfixReportsDashboardPatch=true;"+
         "function money(n){return '₪'+Number(n||0).toLocaleString('he-IL',{minimumFractionDigits:2,maximumFractionDigits:2});}"+
