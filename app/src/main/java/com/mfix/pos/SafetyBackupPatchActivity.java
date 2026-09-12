@@ -6,7 +6,7 @@ import android.view.ViewGroup;
 import android.webkit.WebView;
 
 /** Adds a local safety snapshot before restore and allows recovery from the latest snapshot. */
-public class SafetyBackupPatchActivity extends BackupRestorePatchActivity {
+public class SafetyBackupPatchActivity extends YeshInvoicePatchActivity {
     private static final String PATCH =
         "(function(){if(window.__mfixSafetyBackupV1)return;window.__mfixSafetyBackupV1=true;"+
         "var KEY='mfix_pos_safety_backup_v1';"+
