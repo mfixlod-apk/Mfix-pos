@@ -68,8 +68,30 @@ def main() -> int:
     require(html, "function resumeParkedSale(id)", "parked sales can be resumed", errors)
     require(html, "cartDiscount=p.cartDiscount", "parked-sale discount is restored", errors)
 
+    # Payment invariants: split payments, cash-only change, credit approval and
+    # non-overdraft gift cards must remain enforced before a sale is persisted.
+    require(html, "paymentRows.reduce((a,r)=>a+(Number(r.amount)||0),0)",
+            "checkout totals are calculated from all payment rows", errors)
+    require(html, "if(paid < calc.totalIncl - 0.01)",
+            "checkout blocks underpayment", errors)
+    require(html, "const cashPaid=round2(paymentRows.filter(r=>r.method==='cash')",
+            "cash-only change is calculated separately from total paid", errors)
+    require(html, "if(change>cashPaid+0.01)",
+            "checkout blocks change funded by non-cash tenders", errors)
+    require(html, "if(STATE.settings.creditClearingEnabled && !r.cleared)",
+            "gateway credit rows require successful clearing", errors)
+    require(html, "if(!STATE.settings.creditClearingEnabled && !(r.approvalCode||'').trim())",
+            "manual credit rows require an approval code", errors)
+    require(html, "const giftCardTotals={};",
+            "split gift-card payments are aggregated before validation", errors)
+    require(html, "card.balance - Number(r.amount)",
+            "gift-card balance is reduced after successful payment", errors)
+    require(html, "reference:['bit','check','transfer'].includes(r.method)",
+            "non-card electronic payment references are persisted", errors)
+    require(html, "payments: paymentRows.map(r=>({method:r.method",
+            "payment rows are persisted with the sale", errors)
+
     require(html, "paymentRows[${idx}].reference=this.value", "payment reference input remains available", errors)
-    require(html, "reference:['bit','check','transfer'].includes(r.method)", "payment reference is persisted on the sale", errors)
     require(html, "יש להזין מספר צ׳ק", "check reference validation remains present", errors)
     require(html, "יש להזין מספר אסמכתא להעברה בנקאית", "bank transfer reference validation remains present", errors)
 
