@@ -1,0 +1,22 @@
+package com.mfix.pos;
+
+import android.os.Bundle;
+import android.view.View;
+import android.view.ViewGroup;
+import android.webkit.WebView;
+
+/** Adds operational POS settings without replacing the existing Settings UI. */
+public class SettingsManagementPatchActivity extends ReceiptPrintingPatchActivity {
+    private static final String PATCH =
+        "(function(){if(window.__mfixSettingsManagementV1)return;window.__mfixSettingsManagementV1=true;"+
+        "function load(){try{return Object.assign({lowStockThreshold:3,requireSerialOnSale:false,confirmClearCart:true,showLowStockAlerts:true},JSON.parse(localStorage.getItem('mfix_operational_settings_v1')||'{}'));}catch(e){return {lowStockThreshold:3,requireSerialOnSale:false,confirmClearCart:true,showLowStockAlerts:true};}}"+
+        "function save(s){try{localStorage.setItem('mfix_operational_settings_v1',JSON.stringify(s));}catch(e){}}"+
+        "function esc(s){return String(s==null?'':s).replace(/[&<>\\\"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','\\\"':'&quot;',\"'\":'&#39;'}[c];});}"+
+        "function install(){var v=document.getElementById('view-settings');if(!v)return false;if(document.getElementById('mfixOperationalSettings'))return true;var s=load(),box=document.createElement('div');box.id='mfixOperationalSettings';box.className='card';box.style.marginTop='12px';box.innerHTML='<div class=\"section-title\">⚙️ הגדרות תפעול POS</div><div class=\"muted\" style=\"margin-bottom:12px\">הגדרות אלה נשמרות במכשיר ומשפיעות על התנהגות הקופה.</div><div class=\"grid2\"><div class=\"field\"><label class=\"flabel\">סף התראת מלאי נמוך</label><input id=\"mfixLowStock\" class=\"input\" type=\"number\" min=\"0\" max=\"9999\" step=\"1\" value=\"'+Number(s.lowStockThreshold||0)+'\"><div class=\"muted\">מוצרים בכמות זו או פחות יסומנו כמלאי נמוך.</div></div><div class=\"field\"><label class=\"flabel\">התנהגות מכירת מוצר עם IMEI/סידורי</label><label style=\"display:flex;align-items:center;gap:8px;margin-top:8px\"><input id=\"mfixRequireSerial\" type=\"checkbox\" '+(s.requireSerialOnSale?'checked':'')+'> דרוש מספר ייחודי לפני מכירה</label></div></div><div style=\"display:grid;gap:8px;margin-top:10px\"><label style=\"display:flex;align-items:center;gap:8px\"><input id=\"mfixConfirmClear\" type=\"checkbox\" '+(s.confirmClearCart?'checked':'')+'> בקש אישור לפני ניקוי סל</label><label style=\"display:flex;align-items:center;gap:8px\"><input id=\"mfixLowAlerts\" type=\"checkbox\" '+(s.showLowStockAlerts?'checked':'')+'> הצג התראות מלאי נמוך</label></div><div style=\"display:flex;gap:8px;margin-top:12px;flex-wrap:wrap\"><button id=\"mfixSaveOperational\" class=\"btn btn-primary\">💾 שמור הגדרות</button><button id=\"mfixResetOperational\" class=\"btn btn-ghost\">↺ שחזר ברירת מחדל</button></div><div id=\"mfixSettingsStatus\" class=\"muted\" style=\"margin-top:8px\"></div>';v.appendChild(box);box.querySelector('#mfixSaveOperational').onclick=function(){var next={lowStockThreshold:Math.max(0,Math.min(9999,Number(box.querySelector('#mfixLowStock').value||0))),requireSerialOnSale:box.querySelector('#mfixRequireSerial').checked,confirmClearCart:box.querySelector('#mfixConfirmClear').checked,showLowStockAlerts:box.querySelector('#mfixLowAlerts').checked};save(next);box.querySelector('#mfixSettingsStatus').textContent='נשמר: '+new Date().toLocaleString('he-IL');if(window.toast)window.toast('הגדרות התפעול נשמרו','ok');if(typeof window.render==='function')window.render();};box.querySelector('#mfixResetOperational').onclick=function(){var d={lowStockThreshold:3,requireSerialOnSale:false,confirmClearCart:true,showLowStockAlerts:true};save(d);box.querySelector('#mfixLowStock').value=d.lowStockThreshold;box.querySelector('#mfixRequireSerial').checked=d.requireSerialOnSale;box.querySelector('#mfixConfirmClear').checked=d.confirmClearCart;box.querySelector('#mfixLowAlerts').checked=d.showLowStockAlerts;box.querySelector('#mfixSettingsStatus').textContent='ברירת המחדל שוחזרה — יש ללחוץ שמור כדי לאשר';};return true;}var tries=0,t=setInterval(function(){if(install()||tries++>=40)clearInterval(t);},500);console.log('[MFIX] operational settings patch active');})();";
+
+    @Override protected void onCreate(Bundle savedInstanceState){
+        super.onCreate(savedInstanceState);
+        View root=((ViewGroup)findViewById(android.R.id.content)).getChildAt(0);
+        if(root instanceof WebView)((WebView)root).postDelayed(()->((WebView)root).evaluateJavascript(PATCH,null),5200);
+    }
+}
