@@ -8,7 +8,7 @@
         android:theme="@style/AppTheme"
         android:usesCleartextTraffic="true">
         <activity
-            android:name=".ReleaseScopePatchActivity"
+            android:name=".SettingsDiagnosticsPatchActivity"
             android:screenOrientation="unspecified"
             android:exported="true">
             <intent-filter>
