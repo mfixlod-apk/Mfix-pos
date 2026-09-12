@@ -6,7 +6,7 @@ import android.view.ViewGroup;
 import android.webkit.WebView;
 
 /** Runtime integration layer for Yesh Invoice. Provider submission remains disabled until a verified API contract is configured. */
-public class YeshInvoicePatchActivity extends BackupRestorePatchActivity {
+public class YeshInvoicePatchActivity extends PrinterManagementPatchActivity {
     private static final String PATCH =
         "(function(){if(window.__mfixYeshInvoicePatch)return;window.__mfixYeshInvoicePatch=true;"+
         "var KEY='mfix_yesh_invoice_v1',OUTBOX='mfix_yesh_invoice_outbox_v1';"+
