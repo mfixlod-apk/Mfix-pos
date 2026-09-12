@@ -8,7 +8,7 @@
         android:theme="@style/AppTheme"
         android:usesCleartextTraffic="true">
         <activity
-            android:name=".RoleGuardPatchActivity"
+            android:name=".StockControlPatchActivity"
             android:screenOrientation="unspecified"
             android:exported="true">
             <intent-filter>
