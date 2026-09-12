@@ -12,6 +12,7 @@ YESH = ROOT / "app/src/main/java/com/mfix/pos/YeshInvoicePatchActivity.java"
 MAIN = ROOT / "app/src/main/java/com/mfix/pos/MainActivity.java"
 INVENTORY = ROOT / "app/src/main/java/com/mfix/pos/InventoryImportPatchActivity.java"
 INVENTORY_MGMT = ROOT / "app/src/main/java/com/mfix/pos/InventoryManagementPatchActivity.java"
+RELEASE_SCOPE = ROOT / "app/src/main/java/com/mfix/pos/ReleaseScopePatchActivity.java"
 
 
 def require(text: str, needle: str, label: str, errors: list[str]) -> None:
@@ -21,7 +22,7 @@ def require(text: str, needle: str, label: str, errors: list[str]) -> None:
 
 def main() -> int:
     errors: list[str] = []
-    for path in (INDEX, MANIFEST, PATCHED, RUNTIME, YESH, MAIN, INVENTORY, INVENTORY_MGMT):
+    for path in (INDEX, MANIFEST, PATCHED, RUNTIME, YESH, MAIN, INVENTORY, INVENTORY_MGMT, RELEASE_SCOPE):
         if not path.is_file():
             errors.append(f"Required source file missing: {path.relative_to(ROOT)}")
     if errors:
@@ -36,6 +37,7 @@ def main() -> int:
     bridge = MAIN.read_text(encoding="utf-8")
     inventory = INVENTORY.read_text(encoding="utf-8")
     inventory_mgmt = INVENTORY_MGMT.read_text(encoding="utf-8")
+    release_scope = RELEASE_SCOPE.read_text(encoding="utf-8")
 
     require(html, "'inventoryHistory'", "inventory history is part of persisted misc data", errors)
     require(html, "inventoryHistory:[]", "inventory history exists in application state", errors)
@@ -63,8 +65,8 @@ def main() -> int:
     require(html, "if(paid < calc.totalIncl - 0.01)", "checkout blocks underpayment", errors)
     require(html, "const cashPaid=round2(paymentRows.filter(r=>r.method==='cash')", "cash-only change is calculated separately from total paid", errors)
     require(html, "if(change>cashPaid+0.01)", "checkout blocks change funded by non-cash tenders", errors)
-    require(html, "if(STATE.settings.creditClearingEnabled && !r.cleared)", "gateway credit rows require successful clearing", errors)
-    require(html, "if(!STATE.settings.creditClearingEnabled && !(r.approvalCode||'').trim())", "manual credit rows require an approval code", errors)
+    require(html, "if(STATE.settings.creditClearingEnabled && !r.cleared)", "legacy gateway guard remains safely fail-closed", errors)
+    require(html, "if(!STATE.settings.creditClearingEnabled && !(r.approvalCode||'').trim())", "manual card approval remains available", errors)
     require(html, "const giftCardTotals={};", "split gift-card payments are aggregated before validation", errors)
     require(html, "card.balance - Number(r.amount)", "gift-card balance is reduced after successful payment", errors)
     require(html, "reference:['bit','check','transfer'].includes(r.method)", "non-card electronic payment references are persisted", errors)
@@ -87,17 +89,14 @@ def main() -> int:
     require(inventory_mgmt, "היסטוריית מלאי", "inventory history UI remains installed", errors)
     require(inventory_mgmt, "IMEI / סידורי", "inventory serial/IMEI editing remains installed", errors)
 
-    # The launcher is intentionally the newest patched activity in the runtime chain.
-    launcher_ok = any(name in manifest for name in (
-        'android:name=".ProductEditPatchActivity"',
-        'android:name=".PatchedMainActivity"',
-        'android:name=".RuntimeSafetyPatchActivity"',
-        'android:name=".InventoryImportPatchActivity"',
-        'android:name=".InventoryManagementPatchActivity"',
-        'android:name=".CheckoutCompletionPatchActivity"',
-    ))
+    launcher_ok = 'android:name=".ReleaseScopePatchActivity"' in manifest
     if not launcher_ok:
-        errors.append("Missing invariant: manifest launches a supported patched activity")
+        errors.append("Missing invariant: release scope activity is the launcher")
+    require(release_scope, "extends ProductEditPatchActivity", "release scope preserves the complete runtime chain", errors)
+    require(release_scope, "creditClearingEnabled=false", "direct credit gateway is disabled in release scope", errors)
+    require(release_scope, "yeshInvoiceEnabled=false", "legacy Yesh Invoice integration is disabled in release scope", errors)
+    require(release_scope, "סליקת אשראי (API)", "release scope hides direct credit gateway settings", errors)
+    require(release_scope, "יש חשבונית — אינטגרציה", "release scope hides legacy Yesh settings", errors)
     require(patched, "extends MainActivity", "patched activity keeps the native printer bridge", errors)
     require(patched, "CART_DISCOUNT_PATCH", "checkout discount patch remains installed", errors)
     require(patched, "PRINTER_MANAGEMENT_PATCH", "printer management patch remains installed", errors)
@@ -106,8 +105,6 @@ def main() -> int:
     require(patched, "window.mfixRefreshPrinterConnections=refresh", "native USB events can trigger printer UI refresh", errors)
     require(inventory, "extends PatchedMainActivity", "inventory import preserves the native patched printer/runtime chain", errors)
     require(runtime, "extends ReportsExportPatchActivity", "runtime safety wrapper preserves the complete reports/printer chain", errors)
-    # Yesh Invoice is deliberately not part of the current development target. Keep only a
-    # lightweight presence check so the legacy file cannot break CI by changing its superclass.
     require(yesh, "class YeshInvoicePatchActivity", "legacy Yesh Invoice layer remains present", errors)
     require(yesh, "mfixOpenYeshInvoiceSettings", "legacy Yesh Invoice settings entry point remains present", errors)
 
