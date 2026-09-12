@@ -1,0 +1,24 @@
+package com.mfix.pos;
+
+import android.os.Bundle;
+import android.view.View;
+import android.view.ViewGroup;
+import android.webkit.WebView;
+
+/** Adds a practical sale-return flow backed by completed sales and inventory history. */
+public class SalesReturnPatchActivity extends CashRegisterShiftPatchActivity {
+    private static final String PATCH =
+        "(function(){if(window.__mfixReturnsV1)return;window.__mfixReturnsV1=true;"+
+        "function read(k,d){try{var v=JSON.parse(localStorage.getItem(k));return v==null?d:v;}catch(e){return d;}}"+
+        "function sales(){var a=read('mfix_completed_sales_v1',[]);return Array.isArray(a)?a:[];}"+
+        "function money(v){return Number(v||0).toLocaleString('he-IL',{minimumFractionDigits:2,maximumFractionDigits:2});}"+
+        "function saveState(){try{if(window.STATE&&typeof saveKey==='function'){saveKey('products',STATE.products);saveKey('misc',{returns:STATE.returns,shifts:STATE.shifts,giftCards:STATE.giftCards,preorders:STATE.preorders,auditLog:STATE.auditLog,inventoryHistory:STATE.inventoryHistory});}}catch(e){console.error(e);}}"+
+        "function returnSale(id){var a=sales(),sale=a.find(function(x){return String(x.id)===String(id);});if(!sale){toast('מכירה לא נמצאה','err');return;}var returns=read('mfix_returns_v1',[]);if(!Array.isArray(returns))returns=[];var already=returns.filter(function(r){return String(r.saleId)===String(sale.id);}).reduce(function(n,r){return n+Number(r.total||0);},0);if(already>=Number(sale.total||0)){toast('המכירה כבר זוכתה במלואה','warn');return;}var reason=prompt('סיבת החזרה (אופציונלי):','החזרת מוצר');if(reason===null)return;var amount=Number(sale.total||0)-already;if(window.STATE){if(!Array.isArray(STATE.inventoryHistory))STATE.inventoryHistory=[];if(!Array.isArray(STATE.returns))STATE.returns=[];(sale.items||[]).forEach(function(item){var id=String(item.productId||item.id||item.sku||item.barcode||'');var p=Array.isArray(STATE.products)?STATE.products.find(function(z){return String(z.id||z.sku||z.barcode||'')===id||String(z.sku||'')===String(item.sku||'')||String(z.barcode||'')===String(item.barcode||'');}):null;if(!p)return;var q=Math.max(1,Number(item.qty||1));var before=Number(p.stock||0);p.stock=before+q;var serials=[];if(Array.isArray(item.imeis))serials=serials.concat(item.imeis);if(Array.isArray(item.serials))serials=serials.concat(item.serials);if(item.imei)serials.push(item.imei);if(item.serial)serials.push(item.serial);if(Array.isArray(p.imeis)&&serials.length){p.imeis.forEach(function(x){var v=String(x&&x.value||x&&x.imei||x&&x.serial||x);if(serials.indexOf(v)>=0)x.status='available';});}STATE.inventoryHistory.unshift({id:'invh_'+Date.now()+'_'+Math.random().toString(36).slice(2),productId:p.id,type:'return',qty:q,before:before,after:p.stock,serials:serials.slice(0,q),reason:reason,saleId:sale.id,at:new Date().toISOString()});});STATE.returns.push({id:'R'+Date.now(),saleId:sale.id,total:amount,reason:reason,at:new Date().toISOString(),items:JSON.parse(JSON.stringify(sale.items||[]))});}returns.push({id:'R'+Date.now(),saleId:sale.id,total:amount,reason:reason,at:new Date().toISOString(),items:sale.items||[]});localStorage.setItem('mfix_returns_v1',JSON.stringify(returns));saveState();render();toast('החזרה וזיכוי נרשמו · ₪'+money(amount),'ok');}"+
+        "function render(){var v=document.getElementById('view-pos');if(!v)return false;if(document.getElementById('mfixSalesReturns'))return true;var b=document.createElement('div');b.id='mfixSalesReturns';b.className='card';b.style.marginTop='12px';b.innerHTML='<div class=\"section-title\">↩️ החזרות וזיכויים</div><div class=\"muted\" style=\"margin-bottom:10px\">בחר מכירה שהושלמה כדי להחזיר אותה למלאי ולרשום זיכוי.</div><div style=\"display:flex;gap:8px;flex-wrap:wrap\"><input id=\"mfixReturnSaleId\" class=\"input\" style=\"flex:1;min-width:180px\" placeholder=\"מספר מכירה, לדוגמה S123...\"><button id=\"mfixReturnBtn\" class=\"btn btn-amber\">↩️ בצע החזרה</button></div><div id=\"mfixReturnRecent\" style=\"margin-top:12px\"></div>';v.appendChild(b);b.querySelector('#mfixReturnBtn').onclick=function(){returnSale(b.querySelector('#mfixReturnSaleId').value.trim());};var recent=read('mfix_returns_v1',[]);b.querySelector('#mfixReturnRecent').innerHTML='<b>החזרות אחרונות:</b> '+(Array.isArray(recent)?recent.slice(-5).reverse().map(function(r){return '<div class=\"muted\">'+String(r.saleId)+' · ₪'+money(r.total)+' · '+String(r.reason||'')+'</div>';}).join(''):'');return true;}var n=0,t=setInterval(function(){if(render()||n++>=40)clearInterval(t);},500);})();";
+
+    @Override protected void onCreate(Bundle savedInstanceState){
+        super.onCreate(savedInstanceState);
+        View root=((ViewGroup)findViewById(android.R.id.content)).getChildAt(0);
+        if(root instanceof WebView)((WebView)root).postDelayed(()->((WebView)root).evaluateJavascript(PATCH,null),6200);
+    }
+}
