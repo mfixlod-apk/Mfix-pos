@@ -13,6 +13,7 @@ MAIN = ROOT / "app/src/main/java/com/mfix/pos/MainActivity.java"
 INVENTORY = ROOT / "app/src/main/java/com/mfix/pos/InventoryImportPatchActivity.java"
 INVENTORY_MGMT = ROOT / "app/src/main/java/com/mfix/pos/InventoryManagementPatchActivity.java"
 RELEASE_SCOPE = ROOT / "app/src/main/java/com/mfix/pos/ReleaseScopePatchActivity.java"
+SETTINGS_DIAGNOSTICS = ROOT / "app/src/main/java/com/mfix/pos/SettingsDiagnosticsPatchActivity.java"
 
 
 def require(text: str, needle: str, label: str, errors: list[str]) -> None:
@@ -22,7 +23,7 @@ def require(text: str, needle: str, label: str, errors: list[str]) -> None:
 
 def main() -> int:
     errors: list[str] = []
-    for path in (INDEX, MANIFEST, PATCHED, RUNTIME, YESH, MAIN, INVENTORY, INVENTORY_MGMT, RELEASE_SCOPE):
+    for path in (INDEX, MANIFEST, PATCHED, RUNTIME, YESH, MAIN, INVENTORY, INVENTORY_MGMT, RELEASE_SCOPE, SETTINGS_DIAGNOSTICS):
         if not path.is_file():
             errors.append(f"Required source file missing: {path.relative_to(ROOT)}")
     if errors:
@@ -38,6 +39,7 @@ def main() -> int:
     inventory = INVENTORY.read_text(encoding="utf-8")
     inventory_mgmt = INVENTORY_MGMT.read_text(encoding="utf-8")
     release_scope = RELEASE_SCOPE.read_text(encoding="utf-8")
+    settings_diagnostics = SETTINGS_DIAGNOSTICS.read_text(encoding="utf-8")
 
     require(html, "'inventoryHistory'", "inventory history is part of persisted misc data", errors)
     require(html, "inventoryHistory:[]", "inventory history exists in application state", errors)
@@ -89,9 +91,14 @@ def main() -> int:
     require(inventory_mgmt, "היסטוריית מלאי", "inventory history UI remains installed", errors)
     require(inventory_mgmt, "IMEI / סידורי", "inventory serial/IMEI editing remains installed", errors)
 
-    launcher_ok = 'android:name=".ReleaseScopePatchActivity"' in manifest
+    launcher_ok = 'android:name=".SettingsDiagnosticsPatchActivity"' in manifest
     if not launcher_ok:
-        errors.append("Missing invariant: release scope activity is the launcher")
+        errors.append("Missing invariant: settings diagnostics activity is the launcher")
+    require(settings_diagnostics, "extends ReleaseScopePatchActivity", "settings diagnostics preserves the release runtime chain", errors)
+    require(settings_diagnostics, "מלאי שלילי", "settings diagnostics checks negative stock", errors)
+    require(settings_diagnostics, "ברקוד כפול", "settings diagnostics checks duplicate barcodes", errors)
+    require(settings_diagnostics, "מוצר חסר", "settings diagnostics checks orphan product references", errors)
+    require(settings_diagnostics, "IMEI נמכר ללא מסמך מכירה", "settings diagnostics checks sold IMEI integrity", errors)
     require(release_scope, "extends ProductEditPatchActivity", "release scope preserves the complete runtime chain", errors)
     require(release_scope, "creditClearingEnabled=false", "direct credit gateway is disabled in release scope", errors)
     require(release_scope, "yeshInvoiceEnabled=false", "legacy Yesh Invoice integration is disabled in release scope", errors)
