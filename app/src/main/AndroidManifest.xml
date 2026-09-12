@@ -8,7 +8,7 @@
         android:theme="@style/AppTheme"
         android:usesCleartextTraffic="true">
         <activity
-            android:name=".SalesReturnPatchActivity"
+            android:name=".DailyClosingPatchActivity"
             android:screenOrientation="unspecified"
             android:exported="true">
             <intent-filter>
