@@ -52,9 +52,12 @@ jobs:
 
       - name: Verify APK
         run: |
-          test -s app/build/outputs/apk/release/app-release.apk
-          ls -lh app/build/outputs/apk/release/app-release.apk
-          apksigner verify --verbose app/build/outputs/apk/release/app-release.apk
+          APK="app/build/outputs/apk/release/app-release.apk"
+          test -s "$APK"
+          ls -lh "$APK"
+          APKSIGNER="${ANDROID_HOME:-$ANDROID_SDK_ROOT}/build-tools/35.0.0/apksigner"
+          test -x "$APKSIGNER"
+          "$APKSIGNER" verify --verbose "$APK"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
