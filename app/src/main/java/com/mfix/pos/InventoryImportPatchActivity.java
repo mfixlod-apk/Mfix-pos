@@ -13,7 +13,7 @@ import android.webkit.WebView;
 import android.widget.Toast;
 
 /** Native inventory import bridge plus printer diagnostics/checkout runtime hooks. */
-public class InventoryImportPatchActivity extends PatchedMainActivity {
+public class InventoryImportPatchActivity extends StockHistoryPatchActivity {
     private static final int REQUEST_IMPORT_INVENTORY = 4104;
     private static final String PATCH =
         "(function(){if(window.__mfixNativeInventoryImport)return;window.__mfixNativeInventoryImport=true;"+
