@@ -6,7 +6,7 @@ import android.view.ViewGroup;
 import android.webkit.WebView;
 
 /** Release-scope cleanup: keeps card payments as a recorded tender, but disables direct gateway/API integration and hides legacy integrations. */
-public class ReleaseScopePatchActivity extends ProductEditPatchActivity {
+public class ReleaseScopePatchActivity extends FinalPolishPatchActivity {
     private static final String PATCH =
         "(function(){if(window.__mfixReleaseScopePatch)return;window.__mfixReleaseScopePatch=true;"+
         "function cleanup(){try{if(window.STATE&&window.STATE.settings){window.STATE.settings.creditClearingEnabled=false;window.STATE.settings.yeshInvoiceEnabled=false;window.STATE.settings.yeshInvoiceSyncMode='manual';}}catch(e){}"+
