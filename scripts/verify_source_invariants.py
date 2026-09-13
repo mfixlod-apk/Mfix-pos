@@ -15,6 +15,7 @@ INVENTORY_MGMT = ROOT / "app/src/main/java/com/mfix/pos/InventoryManagementPatch
 RELEASE_SCOPE = ROOT / "app/src/main/java/com/mfix/pos/ReleaseScopePatchActivity.java"
 SETTINGS_DIAGNOSTICS = ROOT / "app/src/main/java/com/mfix/pos/SettingsDiagnosticsPatchActivity.java"
 STOCK_HISTORY = ROOT / "app/src/main/java/com/mfix/pos/StockHistoryPatchActivity.java"
+KEYBOARD_SHORTCUT = ROOT / "app/src/main/java/com/mfix/pos/KeyboardShortcutPatchActivity.java"
 
 
 def require(text: str, needle: str, label: str, errors: list[str]) -> None:
@@ -24,7 +25,7 @@ def require(text: str, needle: str, label: str, errors: list[str]) -> None:
 
 def main() -> int:
     errors: list[str] = []
-    for path in (INDEX, MANIFEST, PATCHED, RUNTIME, YESH, MAIN, INVENTORY, INVENTORY_MGMT, RELEASE_SCOPE, SETTINGS_DIAGNOSTICS, STOCK_HISTORY):
+    for path in (INDEX, MANIFEST, PATCHED, RUNTIME, YESH, MAIN, INVENTORY, INVENTORY_MGMT, RELEASE_SCOPE, SETTINGS_DIAGNOSTICS, STOCK_HISTORY, KEYBOARD_SHORTCUT):
         if not path.is_file():
             errors.append(f"Required source file missing: {path.relative_to(ROOT)}")
     if errors:
@@ -42,6 +43,7 @@ def main() -> int:
     release_scope = RELEASE_SCOPE.read_text(encoding="utf-8")
     settings_diagnostics = SETTINGS_DIAGNOSTICS.read_text(encoding="utf-8")
     stock_history = STOCK_HISTORY.read_text(encoding="utf-8")
+    keyboard_shortcut = KEYBOARD_SHORTCUT.read_text(encoding="utf-8")
 
     require(html, "'inventoryHistory'", "inventory history is part of persisted misc data", errors)
     require(html, "inventoryHistory:[]", "inventory history exists in application state", errors)
@@ -94,9 +96,9 @@ def main() -> int:
     require(inventory_mgmt, "IMEI / סידורי", "inventory serial/IMEI editing remains installed", errors)
     require(stock_history, "extends ReleaseScopePatchActivity", "stock history preserves the release runtime chain", errors)
 
-    launcher_ok = 'android:name=".SettingsDiagnosticsPatchActivity"' in manifest
+    launcher_ok = 'android:name=".KeyboardShortcutPatchActivity"' in manifest
     if not launcher_ok:
-        errors.append("Missing invariant: settings diagnostics activity is the launcher")
+        errors.append("Missing invariant: keyboard shortcut activity is the launcher")
     require(settings_diagnostics, "extends StockHistoryPatchActivity", "settings diagnostics preserves the complete runtime chain", errors)
     require(settings_diagnostics, "מלאי שלילי", "settings diagnostics checks negative stock", errors)
     require(settings_diagnostics, "ברקוד כפול", "settings diagnostics checks duplicate barcodes", errors)
@@ -117,6 +119,12 @@ def main() -> int:
     require(runtime, "extends ReportsExportPatchActivity", "runtime safety wrapper preserves the complete reports/printer chain", errors)
     require(yesh, "class YeshInvoicePatchActivity", "legacy Yesh Invoice layer remains present", errors)
     require(yesh, "mfixOpenYeshInvoiceSettings", "legacy Yesh Invoice settings entry point remains present", errors)
+    require(keyboard_shortcut, "extends CheckoutControlsPatchActivity", "keyboard shortcut preserves the complete runtime chain", errors)
+    require(keyboard_shortcut, "KeyEvent.KEYCODE_F", "Ctrl+Alt+F shortcut targets F", errors)
+    require(keyboard_shortcut, "event.isCtrlPressed() && event.isAltPressed()", "Ctrl+Alt modifiers are required", errors)
+    require(keyboard_shortcut, "finishAndRemoveTask()", "shortcut performs a real task restart", errors)
+    require(manifest, 'android:label="MFIX"', "application label is MFIX", errors)
+    require(manifest, 'android:icon="@drawable/ic_mfix"', "MFIX branded icon is configured", errors)
 
     for needle, label in (
         ("listUsbPrinters", "USB printer discovery"),
