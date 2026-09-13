@@ -28,14 +28,18 @@ jobs:
       - name: Prepare Android SDK
         run: |
           echo "ANDROID_HOME=${ANDROID_HOME:-$ANDROID_SDK_ROOT}" >> "$GITHUB_ENV"
-          SDKMANAGER="${ANDROID_HOME:-$ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager"
-          if [ ! -x "$SDKMANAGER" ]; then SDKMANAGER="${ANDROID_HOME:-$ANDROID_SDK_ROOT}/cmdline-tools/16.0/bin/sdkmanager"; fi
+          SDK_ROOT="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SDKMANAGER" ]; then SDKMANAGER="$SDK_ROOT/cmdline-tools/16.0/bin/sdkmanager"; fi
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+          echo "$SDK_ROOT/platform-tools" >> "$GITHUB_PATH"
+          echo "$SDK_ROOT/build-tools/35.0.0" >> "$GITHUB_PATH"
 
       - name: Validate embedded app
         run: |
           test -s app/src/main/assets/index.html
+          test -s app/src/main/assets/printer-manager.js
           python3 - <<'PY'
           from pathlib import Path
           import re
@@ -46,6 +50,7 @@ jobs:
           Path('/tmp/mfix.js').write_text(max(scripts,key=len),encoding='utf-8')
           PY
           node --check /tmp/mfix.js
+          node --check app/src/main/assets/printer-manager.js
 
       - name: Build Release APK
         run: gradle --no-daemon :app:assembleRelease
