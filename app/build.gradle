@@ -20,3 +20,31 @@ android {
         }
     }
 }
+
+// Compose the large single-file UI with optional native-backed modules at build time.
+def generatedMfixAssets = layout.buildDirectory.dir('generated/mfix-assets')
+
+tasks.register('prepareMfixAssets') {
+    inputs.dir('src/main/assets')
+    outputs.dir(generatedMfixAssets)
+    doLast {
+        def outDir = generatedMfixAssets.get().asFile
+        delete(outDir)
+        copy {
+            from('src/main/assets')
+            into(outDir)
+        }
+        def index = new File(outDir, 'index.html')
+        def html = index.getText('UTF-8')
+        def marker = '<script src="printer-manager.js"></script>'
+        if (!html.contains(marker)) {
+            def close = html.lastIndexOf('</body>')
+            if (close < 0) throw new GradleException('MFIX index.html is missing </body>')
+            html = html.substring(0, close) + marker + '\n' + html.substring(close)
+            index.setText(html, 'UTF-8')
+        }
+    }
+}
+
+android.sourceSets.main.assets.srcDirs = [generatedMfixAssets]
+tasks.named('preBuild').configure { dependsOn('prepareMfixAssets') }
