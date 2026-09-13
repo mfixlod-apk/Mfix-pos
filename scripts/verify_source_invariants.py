@@ -14,6 +14,7 @@ INVENTORY = ROOT / "app/src/main/java/com/mfix/pos/InventoryImportPatchActivity.
 INVENTORY_MGMT = ROOT / "app/src/main/java/com/mfix/pos/InventoryManagementPatchActivity.java"
 RELEASE_SCOPE = ROOT / "app/src/main/java/com/mfix/pos/ReleaseScopePatchActivity.java"
 SETTINGS_DIAGNOSTICS = ROOT / "app/src/main/java/com/mfix/pos/SettingsDiagnosticsPatchActivity.java"
+STOCK_HISTORY = ROOT / "app/src/main/java/com/mfix/pos/StockHistoryPatchActivity.java"
 
 
 def require(text: str, needle: str, label: str, errors: list[str]) -> None:
@@ -23,7 +24,7 @@ def require(text: str, needle: str, label: str, errors: list[str]) -> None:
 
 def main() -> int:
     errors: list[str] = []
-    for path in (INDEX, MANIFEST, PATCHED, RUNTIME, YESH, MAIN, INVENTORY, INVENTORY_MGMT, RELEASE_SCOPE, SETTINGS_DIAGNOSTICS):
+    for path in (INDEX, MANIFEST, PATCHED, RUNTIME, YESH, MAIN, INVENTORY, INVENTORY_MGMT, RELEASE_SCOPE, SETTINGS_DIAGNOSTICS, STOCK_HISTORY):
         if not path.is_file():
             errors.append(f"Required source file missing: {path.relative_to(ROOT)}")
     if errors:
@@ -40,6 +41,7 @@ def main() -> int:
     inventory_mgmt = INVENTORY_MGMT.read_text(encoding="utf-8")
     release_scope = RELEASE_SCOPE.read_text(encoding="utf-8")
     settings_diagnostics = SETTINGS_DIAGNOSTICS.read_text(encoding="utf-8")
+    stock_history = STOCK_HISTORY.read_text(encoding="utf-8")
 
     require(html, "'inventoryHistory'", "inventory history is part of persisted misc data", errors)
     require(html, "inventoryHistory:[]", "inventory history exists in application state", errors)
@@ -90,11 +92,12 @@ def main() -> int:
     require(inventory_mgmt, "mfixInventoryTools", "inventory management tools remain installed", errors)
     require(inventory_mgmt, "היסטוריית מלאי", "inventory history UI remains installed", errors)
     require(inventory_mgmt, "IMEI / סידורי", "inventory serial/IMEI editing remains installed", errors)
+    require(stock_history, "extends ReleaseScopePatchActivity", "stock history preserves the release runtime chain", errors)
 
     launcher_ok = 'android:name=".SettingsDiagnosticsPatchActivity"' in manifest
     if not launcher_ok:
         errors.append("Missing invariant: settings diagnostics activity is the launcher")
-    require(settings_diagnostics, "extends ReleaseScopePatchActivity", "settings diagnostics preserves the release runtime chain", errors)
+    require(settings_diagnostics, "extends StockHistoryPatchActivity", "settings diagnostics preserves the complete runtime chain", errors)
     require(settings_diagnostics, "מלאי שלילי", "settings diagnostics checks negative stock", errors)
     require(settings_diagnostics, "ברקוד כפול", "settings diagnostics checks duplicate barcodes", errors)
     require(settings_diagnostics, "מוצר חסר", "settings diagnostics checks orphan product references", errors)
