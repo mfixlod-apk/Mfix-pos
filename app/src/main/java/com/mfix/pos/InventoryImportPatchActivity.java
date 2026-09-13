@@ -13,69 +13,58 @@ import android.webkit.WebView;
 import android.widget.Toast;
 
 /** Native inventory import bridge plus printer diagnostics/checkout runtime hooks. */
-public class InventoryImportPatchActivity extends StockHistoryPatchActivity {
+public class InventoryImportPatchActivity extends PatchedMainActivity {
     private static final int REQUEST_IMPORT_INVENTORY = 4104;
     private static final String PATCH =
-        "(function(){if(window.__mfixNativeInventoryImport)return;window.__mfixNativeInventoryImport=true;"+
-        "function install(){"+
-        "window.mfixReceiveNativeInventory=function(b64,name){try{"+
-        "var bin=atob(b64),bytes=new Uint8Array(bin.length);for(var i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);"+
-        "var file=new File([bytes],name||'inventory.csv',{type:'application/octet-stream'});"+
-        "function run(attempt){if(typeof window.handleInventoryImportFile!=='function'){if(attempt<30){setTimeout(function(){run(attempt+1);},250);return;}toast('מנגנון ייבוא המלאי לא נטען','err');return;}"+
-        "Promise.resolve(window.handleInventoryImportFile(file)).then(function(){console.log('[MFIX] native inventory import completed');}).catch(function(e){console.error(e);toast('שגיאה בייבוא המלאי: '+(e&&e.message?e.message:'שגיאה'),'err');});}"+
-        "run(0);"+
-        "}catch(e){console.error(e);toast('לא ניתן לקרוא את קובץ המלאי','err');}};"+
-        "window.openInventoryImport=function(){if(window.AndroidPrinter&&typeof window.AndroidPrinter.pickInventoryFile==='function'){window.AndroidPrinter.pickInventoryFile();return;}toast('ייבוא מלאי Android אינו זמין','err');};"+
-        "window.__mfixAutoPrintAfterSale=function(sale){try{if(!sale||!window.STATE||!window.STATE.settings||window.STATE.settings.printerAutoPrint===false)return;if(typeof window.printDoc!=='function')return;setTimeout(function(){try{window.printDoc(sale.id);}catch(e){console.error('[MFIX AUTO PRINT]',e);}},350);}catch(e){console.error('[MFIX AUTO PRINT HOOK]',e);}};"+
-        "if(!window.__mfixFinalizeAutoPrintHook){window.__mfixFinalizeAutoPrintHook=true;var wait=0;function hook(){if(typeof window.finalizeSale!=='function'){if(wait++<40)setTimeout(hook,250);return;}var original=window.finalizeSale;window.finalizeSale=async function(){var before=window.STATE&&Array.isArray(window.STATE.sales)?window.STATE.sales.length:0;var result=await original.apply(this,arguments);var after=window.STATE&&Array.isArray(window.STATE.sales)?window.STATE.sales.length:0;if(after>before&&window.STATE.settings&&window.STATE.settings.printerAutoPrint!==false){window.__mfixAutoPrintAfterSale(window.STATE.sales[after-1]);}return result;};}hook();}"+
-        "}install();console.log('[MFIX] native inventory import patch active');})();";
+        "(function(){if(window.__mfixInventoryImportPatch)return;window.__mfixInventoryImportPatch=true;"+
+        "function send(){var f=document.getElementById('inventoryImportFile');if(!f)return false;f.accept='.csv,.tsv,.txt,.xlsx,.xls,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv,text/plain';f.style.display='block';f.style.position='fixed';f.style.left='0';f.style.top='0';f.style.width='1px';f.style.height='1px';f.style.opacity='0.01';f.style.zIndex='-1';if(!f.__mfixNativeHook){f.addEventListener('change',function(){if(this.files&&this.files[0]&&typeof window.handleInventoryImportFile==='function')window.handleInventoryImportFile(this.files[0]);this.value='';});f.__mfixNativeHook=true;}return true;}"+
+        "window.mfixOpenInventoryImport=function(){if(window.AndroidPrinter&&AndroidPrinter.pickInventoryFile){AndroidPrinter.pickInventoryFile();return;}var f=document.getElementById('inventoryImportFile');if(f){send();f.click();}else if(window.toast)window.toast('בחירת קובץ מלאי אינה זמינה','err');};"+
+        "window.mfixReceiveNativeInventory=function(b64,name){try{var bin=atob(b64),bytes=new Uint8Array(bin.length);for(var i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);var blob=new Blob([bytes],{type:'application/octet-stream'});var file=new File([blob],name||'inventory.csv');if(typeof window.handleInventoryImportFile==='function')window.handleInventoryImportFile(file);else window.__mfixPendingInventoryFile=file;}catch(e){if(window.toast)window.toast('שגיאה בטעינת קובץ המלאי: '+e.message,'err');}};"+
+        "send();setInterval(send,2000);console.log('[MFIX] native inventory import bridge active');})();";
 
     @Override protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        View root = ((ViewGroup)findViewById(android.R.id.content)).getChildAt(0);
+        View root = ((ViewGroup) findViewById(android.R.id.content)).getChildAt(0);
         if (root instanceof WebView) {
-            ((WebView)root).postDelayed(() -> ((WebView)root).evaluateJavascript(PATCH,null), 1600);
+            ((WebView) root).postDelayed(() -> ((WebView) root).evaluateJavascript(PATCH, null), 900);
         }
-    }
-
-    public void openInventoryPicker() {
-        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-        intent.addCategory(Intent.CATEGORY_OPENABLE);
-        intent.setType("*/*");
-        startActivityForResult(intent, REQUEST_IMPORT_INVENTORY);
-    }
-
-    /** Resolves the provider's real display filename, preserving .csv/.xlsx/etc. */
-    private String resolveDisplayName(Uri uri) {
-        if (uri == null) return null;
-        Cursor cursor = null;
-        try {
-            cursor = getContentResolver().query(uri,new String[]{OpenableColumns.DISPLAY_NAME},null,null,null);
-            if (cursor != null && cursor.moveToFirst()) return cursor.getString(0);
-        } catch (Exception ignored) {
-        } finally {
-            if (cursor != null) cursor.close();
-        }
-        return null;
     }
 
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode != REQUEST_IMPORT_INVENTORY || resultCode != Activity.RESULT_OK || data == null || data.getData() == null) return;
-        Uri uri = data.getData();
         try {
+            Uri uri = data.getData();
+            String name = resolveDisplayName(uri);
             java.io.InputStream in = getContentResolver().openInputStream(uri);
-            java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
-            byte[] buf = new byte[8192]; int n;
-            while (in != null && (n = in.read(buf)) != -1) out.write(buf,0,n);
-            if (in != null) in.close();
-            final String payload = Base64.encodeToString(out.toByteArray(),Base64.NO_WRAP);
-            String resolved = resolveDisplayName(uri);
-            final String fileName = resolved == null || resolved.trim().isEmpty() ? "inventory.csv" : resolved;
-            View root = ((ViewGroup)findViewById(android.R.id.content)).getChildAt(0);
-            if (root instanceof WebView) ((WebView)root).evaluateJavascript("window.mfixReceiveNativeInventory("+org.json.JSONObject.quote(payload)+","+org.json.JSONObject.quote(fileName)+");",null);
-        } catch (Exception e) {
-            Toast.makeText(this, "שגיאה בייבוא מלאי: "+e.getMessage(), Toast.LENGTH_LONG).show();
+            java.io.ByteArrayOutputStream buffer = new java.io.ByteArrayOutputStream();
+            byte[] chunk = new byte[16384]; int n;
+            while ((n = in.read(chunk)) != -1) buffer.write(chunk, 0, n);
+            in.close();
+            String b64 = Base64.encodeToString(buffer.toByteArray(), Base64.NO_WRAP);
+            String js = "window.mfixReceiveNativeInventory && window.mfixReceiveNativeInventory('" + b64 + "','" + WebViewEscape(name) + "')";
+            View root = ((ViewGroup) findViewById(android.R.id.content)).getChildAt(0);
+            if (root instanceof WebView) ((WebView) root).evaluateJavascript(js, null);
+        } catch (Exception ex) {
+            Toast.makeText(this, "שגיאה בייבוא מלאי: " + ex.getMessage(), Toast.LENGTH_LONG).show();
         }
+    }
+
+    private String resolveDisplayName(Uri uri) {
+        Cursor cursor = null;
+        try {
+            cursor = getContentResolver().query(uri, new String[]{OpenableColumns.DISPLAY_NAME}, null, null, null);
+            if (cursor != null && cursor.moveToFirst()) {
+                int i = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
+                if (i >= 0) return cursor.getString(i);
+            }
+        } finally { if (cursor != null) cursor.close(); }
+        String path = uri == null ? null : uri.getLastPathSegment();
+        return path == null ? "inventory.csv" : path.replace("%20", " ");
+    }
+
+    private String WebViewEscape(String s) {
+        if (s == null) return "inventory.csv";
+        return s.replace("\\", "\\\\").replace("'", "\\'").replace("\n", " ").replace("\r", " ");
     }
 }
