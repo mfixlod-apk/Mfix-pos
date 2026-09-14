@@ -9,7 +9,7 @@
         android:theme="@style/AppTheme"
         android:usesCleartextTraffic="true">
         <activity
-            android:name=".PrinterDiagnosticsPatchActivity"
+            android:name=".PrinterSettingsPatchActivity"
             android:screenOrientation="unspecified"
             android:exported="true">
             <intent-filter>
