@@ -21,14 +21,15 @@ public class InventoryHistoryPatchActivity extends KeyboardShortcutPatchActivity
         "if(window.openModal)window.openModal(html,{wide:true});"+
         "}"+
         "function install(){var v=document.getElementById('view-inventory');if(!v){setTimeout(install,600);return;}var old=document.getElementById('mfixInventoryHistoryCard');if(old)old.remove();var box=document.createElement('div');box.id='mfixInventoryHistoryCard';box.className='card';box.style.marginBottom='12px';box.innerHTML='<div class=\"section-title\">📦 היסטוריית מלאי</div><div class=\"muted\" style=\"font-size:12px;margin-bottom:10px\">צפייה בכל שינויי המלאי שנרשמו במערכת, כולל מכירות ויחידות IMEI/סידורי.</div><button type=\"button\" class=\"btn btn-outline\" id=\"mfixOpenInventoryHistory\">📋 הצג היסטוריה</button>';v.insertBefore(box,v.firstChild);box.querySelector('#mfixOpenInventoryHistory').onclick=openHistory;}"+
-        "var tries=0;function loop(){tries++;install();if(tries<80)setTimeout(loop,750);}loop();console.log('[MFIX] inventory history patch active');"+
+        "function installImportFix(){var input=document.getElementById('inventoryImportFile');if(input){window.openInventoryImport=function(){try{input.value='';input.click();}catch(e){console.error('[MFIX IMPORT INPUT]',e);}};return true;}return false;}"+
+        "var tries=0;function loop(){tries++;install();if(tries<80)setTimeout(loop,750);}loop();var importTries=0;function importLoop(){importTries++;if(!installImportFix()&&importTries<80)setTimeout(importLoop,750);}importLoop();console.log('[MFIX] inventory history/import UI patch active');"+
         "})();";
 
     @Override protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         View root = ((ViewGroup)findViewById(android.R.id.content)).getChildAt(0);
         if (root instanceof WebView) {
-            ((WebView) root).postDelayed(() -> ((WebView) root).evaluateJavascript(PATCH, null), 6000);
+            ((WebView) root).postDelayed(() -> ((WebView)root).evaluateJavascript(PATCH, null), 6000);
         }
     }
 }
