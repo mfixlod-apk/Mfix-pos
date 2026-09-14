@@ -90,15 +90,19 @@ def main() -> int:
     require(inventory, "mfixReceiveNativeInventory", "native inventory import receiver remains installed", errors)
     require(inventory, "AndroidPrinter.pickInventoryFile", "native inventory picker remains connected", errors)
     require(inventory, "OpenableColumns.DISPLAY_NAME", "native inventory import preserves the provider filename", errors)
-    require(inventory, "resolveDisplayName", "native inventory import resolves the real file extension", errors)
+    require(inventory, "displayName(Uri uri)", "native inventory import resolves the provider filename", errors)
     require(inventory_mgmt, "mfixInventoryTools", "inventory management tools remain installed", errors)
     require(inventory_mgmt, "היסטוריית מלאי", "inventory history UI remains installed", errors)
     require(inventory_mgmt, "IMEI / סידורי", "inventory serial/IMEI editing remains installed", errors)
     require(stock_history, "extends ReleaseScopePatchActivity", "stock history preserves the release runtime chain", errors)
 
-    launcher_ok = 'android:name=".KeyboardShortcutPatchActivity"' in manifest
+    launcher_ok = ('android:name=".KeyboardShortcutPatchActivity"' in manifest or
+                   'android:name=".PrinterDiagnosticsPatchActivity"' in manifest)
     if not launcher_ok:
-        errors.append("Missing invariant: keyboard shortcut activity is the launcher")
+        errors.append("Missing invariant: keyboard shortcut/printer diagnostics launcher is configured")
+    if 'android:name=".PrinterDiagnosticsPatchActivity"' in manifest:
+        require(inventory_mgmt, "extends ReportsDashboardPatchActivity", "printer diagnostics chain reaches inventory management", errors)
+        require(keyboard_shortcut, "extends CheckoutControlsPatchActivity", "keyboard shortcut remains in the printer diagnostics runtime chain", errors)
     require(settings_diagnostics, "extends StockHistoryPatchActivity", "settings diagnostics preserves the complete runtime chain", errors)
     require(settings_diagnostics, "מלאי שלילי", "settings diagnostics checks negative stock", errors)
     require(settings_diagnostics, "ברקוד כפול", "settings diagnostics checks duplicate barcodes", errors)
