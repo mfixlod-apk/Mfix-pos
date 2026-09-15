@@ -25,7 +25,7 @@ import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 
 /** Reliable native file bridge for inventory and backup restore. */
-public class InventoryImportPatchActivity extends PatchedMainActivity {
+public class InventoryImportPatchActivity extends GranularPermissionsActivePatchActivity {
     private static final int REQUEST_IMPORT_INVENTORY = 4104;
     private static final int REQUEST_RESTORE_BACKUP = 4103;
     private static final int JS_CHUNK = 64 * 1024;
@@ -83,6 +83,6 @@ public class InventoryImportPatchActivity extends PatchedMainActivity {
         if(resultCode!=Activity.RESULT_OK||data==null||data.getData()==null)return;
         Uri uri=data.getData();try{InputStream in=getContentResolver().openInputStream(uri);if(in==null)throw new Exception("לא ניתן לפתוח את הקובץ");byte[] bytes=readAll(in);in.close();WebView w=web();if(w==null)throw new Exception("חלון האפליקציה אינו זמין");
             if(requestCode==REQUEST_IMPORT_INVENTORY){String name=displayName(uri);if(name==null||name.trim().isEmpty())name="inventory.csv";String lower=name.toLowerCase(Locale.ROOT);if(lower.endsWith(".xlsx")){bytes=xlsxToCsv(bytes).getBytes(StandardCharsets.UTF_8);}String b64=Base64.encodeToString(bytes,Base64.NO_WRAP);String end="window.mfixReceiveNativeInventoryEnd("+org.json.JSONObject.quote(name)+");";sendChunks(w,"mfixReceiveNativeInventoryChunk",b64,end);}else{String b64=Base64.encodeToString(bytes,Base64.NO_WRAP);sendChunks(w,"mfixReceiveNativeBackupChunk",b64,"window.mfixReceiveNativeBackupEnd();");}
-        }catch(Exception e){android.widget.Toast.makeText(this,(requestCode==REQUEST_IMPORT_INVENTORY?"שגיאה בייבוא מלאי: ":"שגיאה בשחזור גיבוי: ")+e.getMessage(),android.widget.Toast.LENGTH_LONG).show();}
+        }catch(Exception e){android.widget.Toast.makeText(this,(requestCode==REQUEST_IMPORT_INVENTORY?"שגיאה בייבוא מלאי: ":"שגיאה בשחזור גיבוי:")+e.getMessage(),android.widget.Toast.LENGTH_LONG).show();}
     }
 }
