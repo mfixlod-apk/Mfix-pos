@@ -5,8 +5,8 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.webkit.WebView;
 
-/** Activates the existing Yesh Invoice settings/outbox layer after backup/restore in the live chain. */
-public class YeshInvoiceActivePatchActivity extends BackupRestoreActivePatchActivity {
+/** Activates the existing Yesh Invoice settings/outbox layer after reports and backup/restore in the live chain. */
+public class YeshInvoiceActivePatchActivity extends ReportsActivePatchActivity {
     private static final String PATCH =
         "(function(){if(window.__mfixYeshInvoiceActive)return;window.__mfixYeshInvoiceActive=true;"+
         "function install(){var host=document.querySelector('.topbar-right');if(!host)return false;var b=document.getElementById('mfixYeshInvoiceButton');if(!b){b=document.createElement('button');b.id='mfixYeshInvoiceButton';b.className='btn btn-outline';b.type='button';b.textContent='🧾 יש חשבונית';b.onclick=function(){if(typeof window.mfixOpenYeshInvoiceSettings==='function')window.mfixOpenYeshInvoiceSettings();else if(window.toast)window.toast('מודול יש חשבונית עדיין נטען','err');};host.appendChild(b);}return true;}"+
