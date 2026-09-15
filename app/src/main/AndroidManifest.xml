@@ -9,7 +9,7 @@
         android:theme="@style/AppTheme"
         android:usesCleartextTraffic="true">
         <activity
-            android:name=".UserAccountsActivePatchActivity"
+            android:name=".BackupRestoreActivePatchActivity"
             android:screenOrientation="unspecified"
             android:exported="true">
             <intent-filter>
