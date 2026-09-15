@@ -9,7 +9,7 @@
         android:theme="@style/AppTheme"
         android:usesCleartextTraffic="true">
         <activity
-            android:name=".InventoryManagementActivePatchActivity"
+            android:name=".GranularPermissionsActivePatchActivity"
             android:screenOrientation="unspecified"
             android:exported="true">
             <intent-filter>
