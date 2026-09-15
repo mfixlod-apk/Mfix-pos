@@ -74,8 +74,8 @@ public class InventoryImportPatchActivity extends GranularPermissionsActivePatch
 
     private WebView web(){View root=((ViewGroup)findViewById(android.R.id.content)).getChildAt(0);return root instanceof WebView?(WebView)root:null;}
 
-    private void sendChunks(WebView w,String method,String b64,String endArg){
-        int total=b64.length();for(int p=0;p<total;p+=JS_CHUNK){int e=Math.min(total,p+JS_CHUNK);String part=b64.substring(p,e);String js="window."+method+"("+org.json.JSONObject.quote(part)+");";w.evaluateJavascript(js,null);}String end="window."+endArg+";";w.postDelayed(()->w.evaluateJavascript(end,null),Math.max(100,Math.min(3000,(total/JS_CHUNK)*15)));
+    private void sendChunks(WebView w,String method,String b64,String endScript){
+        int total=b64.length();for(int p=0;p<total;p+=JS_CHUNK){int e=Math.min(total,p+JS_CHUNK);String part=b64.substring(p,e);String js="window."+method+"("+org.json.JSONObject.quote(part)+");";w.evaluateJavascript(js,null);}String end=endScript;w.postDelayed(()->w.evaluateJavascript(end,null),Math.max(100,Math.min(3000,(total/JS_CHUNK)*15)));
     }
 
     @Override protected void onActivityResult(int requestCode,int resultCode,Intent data){
