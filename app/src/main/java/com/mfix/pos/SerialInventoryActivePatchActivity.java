@@ -5,8 +5,8 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.webkit.WebView;
 
-/** Adds explicit multi-IMEI/serial inventory management on top of the live inventory chain. */
-public class SerialInventoryActivePatchActivity extends GranularPermissionsActivePatchActivity {
+/** Adds explicit multi-IMEI/serial inventory management on top of the live inventory/import chain. */
+public class SerialInventoryActivePatchActivity extends InventoryImportPatchActivity {
     private static final String PATCH =
         "(function(){if(window.__mfixSerialInventory)return;window.__mfixSerialInventory=true;"+
         "function esc(s){return String(s==null?'':s).replace(/[&<>\\\"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','\\\"':'&quot;',\"'\":'&#39;'}[c];});}"+
