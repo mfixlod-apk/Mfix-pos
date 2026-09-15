@@ -25,7 +25,7 @@ import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 
 /** Reliable native file bridge for inventory and backup restore. */
-public class InventoryImportPatchActivity extends GranularPermissionsActivePatchActivity {
+public class InventoryImportPatchActivity extends PatchedMainActivity {
     private static final int REQUEST_IMPORT_INVENTORY = 4104;
     private static final int REQUEST_RESTORE_BACKUP = 4103;
     private static final int JS_CHUNK = 64 * 1024;
