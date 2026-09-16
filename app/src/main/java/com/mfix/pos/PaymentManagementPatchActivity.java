@@ -39,11 +39,15 @@ public class PaymentManagementPatchActivity extends UsersPermissionsPatchActivit
         "install();" +
         "})();";
 
+    public static void install(WebView webView) {
+        if (webView != null) {
+            webView.postDelayed(() -> webView.evaluateJavascript(PATCH, null), 900);
+        }
+    }
+
     @Override protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         View root = ((ViewGroup) findViewById(android.R.id.content)).getChildAt(0);
-        if (root instanceof WebView) {
-            ((WebView) root).postDelayed(() -> ((WebView) root).evaluateJavascript(PATCH, null), 1300);
-        }
+        if (root instanceof WebView) install((WebView) root);
     }
 }
