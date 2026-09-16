@@ -5,7 +5,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.webkit.WebView;
 
-/** Live launcher: inventory + IMEI/serial + product editing + user permissions + backup user-store consistency. */
+/** Live launcher: inventory + IMEI/serial + product editing + user permissions + checkout controls. */
 public class GranularPermissionsActivePatchActivity extends ProductEditPatchActivity {
     private static final String PATCH =
         "(function(){if(window.__mfixGranularPermissions)return;window.__mfixGranularPermissions=true;"+
@@ -19,7 +19,7 @@ public class GranularPermissionsActivePatchActivity extends ProductEditPatchActi
         "function syncUsers(){try{var target='mfix_users_v1',sources=['mfix_pos_users_v1','mfix_users_v2'],best=null;for(var i=0;i<sources.length;i++){var v=localStorage.getItem(sources[i]);if(v){try{var a=JSON.parse(v);if(Array.isArray(a)&&a.length){best=v;break;}}catch(e){}}}if(best)localStorage.setItem(target,best);}catch(e){console.error('[MFIX BACKUP USERS]',e);}}"+
         "function restoreUsers(){try{var v=localStorage.getItem('mfix_users_v1');if(!v)return;for(var i=0;i<2;i++){var k=i===0?'mfix_pos_users_v1':'mfix_users_v2';try{var a=JSON.parse(v);if(Array.isArray(a)&&a.length)localStorage.setItem(k,v);}catch(e){}}}catch(e){}}"+
         "restoreUsers();syncUsers();setInterval(syncUsers,1500);"+
-        "var n=0;function loop(){n++;card();enforce();if(n<100)setTimeout(loop,800);}loop();console.log('[MFIX] granular permissions + inventory chain active');})();";
+        "var n=0;function loop(){n++;card();enforce();if(n<100)setTimeout(loop,800);}loop();console.log('[MFIX] granular permissions + inventory + checkout chain active');})();";
 
     @Override protected void onCreate(Bundle savedInstanceState){
         super.onCreate(savedInstanceState);
@@ -30,6 +30,7 @@ public class GranularPermissionsActivePatchActivity extends ProductEditPatchActi
                 webView.evaluateJavascript(PATCH,null);
                 PrinterManagementPatchActivity.install(webView);
                 BusinessSettingsPatchActivity.install(webView);
+                CheckoutControlsPatchActivity.install(webView);
             },2500);
         }
     }
