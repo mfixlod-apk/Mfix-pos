@@ -38,6 +38,7 @@ public class KeyboardShortcutPatchActivity extends CheckoutControlsPatchActivity
         if (root instanceof WebView) {
             WebView web = (WebView) root;
             PrinterManagementPatchActivity.install(web);
+            OperationalSettingsBehaviorPatch.install(web);
             web.postDelayed(() -> web.evaluateJavascript(SALES_REPORT_SYNC_PATCH, null), 3200);
         }
     }
