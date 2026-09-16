@@ -16,6 +16,7 @@ RELEASE_SCOPE = ROOT / "app/src/main/java/com/mfix/pos/ReleaseScopePatchActivity
 SETTINGS_DIAGNOSTICS = ROOT / "app/src/main/java/com/mfix/pos/SettingsDiagnosticsPatchActivity.java"
 STOCK_HISTORY = ROOT / "app/src/main/java/com/mfix/pos/StockHistoryPatchActivity.java"
 KEYBOARD_SHORTCUT = ROOT / "app/src/main/java/com/mfix/pos/KeyboardShortcutPatchActivity.java"
+BACKUP_USERS = ROOT / "app/src/main/java/com/mfix/pos/BackupUsersConsistencyPatchActivity.java"
 
 
 def require(text: str, needle: str, label: str, errors: list[str]) -> None:
@@ -25,7 +26,7 @@ def require(text: str, needle: str, label: str, errors: list[str]) -> None:
 
 def main() -> int:
     errors: list[str] = []
-    for path in (INDEX, MANIFEST, PATCHED, RUNTIME, YESH, MAIN, INVENTORY, INVENTORY_MGMT, RELEASE_SCOPE, SETTINGS_DIAGNOSTICS, STOCK_HISTORY, KEYBOARD_SHORTCUT):
+    for path in (INDEX, MANIFEST, PATCHED, RUNTIME, YESH, MAIN, INVENTORY, INVENTORY_MGMT, RELEASE_SCOPE, SETTINGS_DIAGNOSTICS, STOCK_HISTORY, KEYBOARD_SHORTCUT, BACKUP_USERS):
         if not path.is_file():
             errors.append(f"Required source file missing: {path.relative_to(ROOT)}")
     if errors:
@@ -44,6 +45,7 @@ def main() -> int:
     settings_diagnostics = SETTINGS_DIAGNOSTICS.read_text(encoding="utf-8")
     stock_history = STOCK_HISTORY.read_text(encoding="utf-8")
     keyboard_shortcut = KEYBOARD_SHORTCUT.read_text(encoding="utf-8")
+    backup_users = BACKUP_USERS.read_text(encoding="utf-8")
 
     require(html, "'inventoryHistory'", "inventory history is part of persisted misc data", errors)
     require(html, "inventoryHistory:[]", "inventory history exists in application state", errors)
@@ -98,7 +100,8 @@ def main() -> int:
 
     launcher_ok = ('android:name=".KeyboardShortcutPatchActivity"' in manifest or
                    'android:name=".PrinterDiagnosticsPatchActivity"' in manifest or
-                   'android:name=".YeshInvoiceActivePatchActivity"' in manifest)
+                   'android:name=".YeshInvoiceActivePatchActivity"' in manifest or
+                   'android:name=".BackupUsersConsistencyPatchActivity"' in manifest)
     if not launcher_ok:
         errors.append("Missing invariant: active MFIX launcher is configured")
     if 'android:name=".PrinterDiagnosticsPatchActivity"' in manifest:
@@ -107,6 +110,8 @@ def main() -> int:
     if 'android:name=".YeshInvoiceActivePatchActivity"' in manifest:
         require(yesh, "extends PrinterManagementPatchActivity", "Yesh Invoice activation preserves the printer management chain", errors)
         require(manifest, 'android:name=".YeshInvoiceActivePatchActivity"', "Yesh Invoice launcher is configured", errors)
+    if 'android:name=".BackupUsersConsistencyPatchActivity"' in manifest:
+        require(backup_users, "extends KeyboardShortcutPatchActivity", "backup user consistency preserves the existing runtime chain", errors)
     require(settings_diagnostics, "extends StockHistoryPatchActivity", "settings diagnostics preserves the complete runtime chain", errors)
     require(settings_diagnostics, "מלאי שלילי", "settings diagnostics checks negative stock", errors)
     require(settings_diagnostics, "ברקוד כפול", "settings diagnostics checks duplicate barcodes", errors)
