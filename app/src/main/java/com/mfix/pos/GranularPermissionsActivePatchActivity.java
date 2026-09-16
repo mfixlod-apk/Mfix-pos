@@ -5,8 +5,8 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.webkit.WebView;
 
-/** Adds per-user tab permissions on top of the existing manager/cashier roles. */
-public class GranularPermissionsActivePatchActivity extends BackupRestoreActivePatchActivity {
+/** Adds per-user tab permissions on top of the active backup/user consistency chain. */
+public class GranularPermissionsActivePatchActivity extends BackupUsersConsistencyPatchActivity {
     private static final String PATCH =
         "(function(){if(window.__mfixGranularPermissions)return;window.__mfixGranularPermissions=true;"+
         "var KEY='mfix_users_v2';var TABS=['pos','inventory','customers','repairs','reports','settings'];"+
