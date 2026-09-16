@@ -36,7 +36,9 @@ public class KeyboardShortcutPatchActivity extends CheckoutControlsPatchActivity
         super.onCreate(savedInstanceState);
         View root = ((ViewGroup) findViewById(android.R.id.content)).getChildAt(0);
         if (root instanceof WebView) {
-            ((WebView) root).postDelayed(() -> ((WebView) root).evaluateJavascript(SALES_REPORT_SYNC_PATCH, null), 3200);
+            WebView web = (WebView) root;
+            PrinterManagementPatchActivity.install(web);
+            web.postDelayed(() -> web.evaluateJavascript(SALES_REPORT_SYNC_PATCH, null), 3200);
         }
     }
 
