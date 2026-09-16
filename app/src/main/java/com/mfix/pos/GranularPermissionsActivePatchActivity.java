@@ -24,6 +24,13 @@ public class GranularPermissionsActivePatchActivity extends ProductEditPatchActi
     @Override protected void onCreate(Bundle savedInstanceState){
         super.onCreate(savedInstanceState);
         View root=((ViewGroup)findViewById(android.R.id.content)).getChildAt(0);
-        if(root instanceof WebView)((WebView)root).postDelayed(()->((WebView)root).evaluateJavascript(PATCH,null),14500);
+        if(root instanceof WebView){
+            WebView webView=(WebView)root;
+            webView.postDelayed(()->{
+                webView.evaluateJavascript(PATCH,null);
+                PrinterManagementPatchActivity.install(webView);
+                BusinessSettingsPatchActivity.install(webView);
+            },2500);
+        }
     }
 }
