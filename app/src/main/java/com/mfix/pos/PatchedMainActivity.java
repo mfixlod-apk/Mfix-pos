@@ -16,7 +16,7 @@ import android.webkit.WebView;
  * targeted business-logic and printer-management fixes without duplicating
  * the large WebView shell.
  */
-public class PatchedMainActivity extends GranularPermissionsActivePatchActivity {
+public class PatchedMainActivity extends MainActivity {
     private WebView printerWeb;
     private boolean usbDeviceReceiverRegistered;
     private final BroadcastReceiver usbDeviceReceiver = new BroadcastReceiver() {
