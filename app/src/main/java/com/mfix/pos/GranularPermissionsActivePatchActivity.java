@@ -41,6 +41,7 @@ public class GranularPermissionsActivePatchActivity extends ProductEditPatchActi
                 BackupRestoreLiveInstaller.install(webView);
                 LowStockDashboardPatchActivity.install(webView);
                 ReportsAnalyticsPatchActivity.install(webView);
+                BackupRestoreSafetyPatchActivity.install(webView);
             },2500);
         }
     }
