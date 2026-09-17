@@ -39,6 +39,7 @@ public class GranularPermissionsActivePatchActivity extends ProductEditPatchActi
                 ReceiptPrintingPatchActivity.install(webView);
                 YeshInvoicePatchActivity.install(webView);
                 BackupRestoreLiveInstaller.install(webView);
+                LowStockDashboardPatchActivity.install(webView);
             },2500);
         }
     }
