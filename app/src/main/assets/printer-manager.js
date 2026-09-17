@@ -13,6 +13,18 @@
     try { var a=JSON.parse(api().listUsbPrinters()||'[]'); return Array.isArray(a)?a:[]; }
     catch(e){ return []; }
   }
+  function printerSettings(){
+    try { return JSON.parse(localStorage.getItem('mfix_printer_settings_v1')||'{}') || {}; }
+    catch(e){ return {}; }
+  }
+  function defaultPrinterId(){
+    var s=printerSettings();
+    return String(localStorage.getItem('mfix_default_printer_v1')||s.device||'');
+  }
+  function selectedPrinter(ps){
+    var id=defaultPrinterId();
+    return ps.find(function(x){return id && (x.id===id || x.name===id);}) || ps[0] || null;
+  }
   function open(){
     var a=api();
     if(!a){ alert('הדפסת USB אינה זמינה בגרסת המכשיר הזו'); return; }
@@ -47,9 +59,9 @@
     };});
   }
 
-  // Checkout integration: after a completed sale, open the cash drawer when the
-  // sale contains cash. This calls only the native USB bridge that is already
-  // present and does not claim support for Bluetooth/Wi-Fi drawers.
+  // Checkout integration: after a completed cash sale, open the drawer only when
+  // the explicit drawer setting is enabled. This calls only the existing native
+  // USB bridge and does not claim support for Bluetooth/Wi-Fi drawers.
   function installCheckoutDrawerHook(){
     if(typeof window.finalizeSale!=='function' || window.__mfixCheckoutDrawerHooked) return;
     window.__mfixCheckoutDrawerHooked=true;
@@ -58,6 +70,8 @@
       var beforeCount=(window.STATE && Array.isArray(window.STATE.sales)) ? window.STATE.sales.length : -1;
       var result=await original.apply(this,arguments);
       try{
+        var s=printerSettings();
+        if(s.drawer!==true) return result;
         var st=window.STATE;
         if(!st || !Array.isArray(st.sales) || st.sales.length<=beforeCount) return result;
         var sale=st.sales[st.sales.length-1];
@@ -65,12 +79,8 @@
         if(!hasCash) return result;
         var bridge=api();
         if(!bridge || typeof bridge.openCashDrawer!=='function') return result;
-        var profile=(st.settings && Array.isArray(st.settings.printers)) ? st.settings.printers.find(function(p){return p.id===st.settings.defaultPrinterId;}) : null;
-        if(profile && profile.type==='USB' && profile.address){
-          bridge.openCashDrawer(profile.address);
-        }else{
-          bridge.openCashDrawer('');
-        }
+        var printers=list(), p=selectedPrinter(printers);
+        if(p && p.id) bridge.openCashDrawer(p.id);
       }catch(e){ console.error('[MFIX CASH DRAWER]',e); }
       return result;
     };
@@ -78,6 +88,8 @@
 
   function install(){
     if(!document.body) return;
+    var old=document.getElementById('mfixPrinterManagerButton');
+    if(old) old.remove();
     var b=document.createElement('button'); b.id='mfixPrinterManagerButton'; b.textContent='🖨️';
     b.title='ניהול מדפסות';
     b.style.cssText='position:fixed;left:16px;bottom:16px;z-index:9000;width:48px;height:48px;border:0;border-radius:50%;background:#2158cf;color:#fff;font-size:22px;box-shadow:0 6px 18px rgba(0,0,0,.2);cursor:pointer';
