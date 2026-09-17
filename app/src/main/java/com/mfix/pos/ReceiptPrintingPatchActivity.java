@@ -14,9 +14,15 @@ public class ReceiptPrintingPatchActivity extends ProductSerialManagementPatchAc
         "function install(){var b=document.querySelector('.mfix-finish-sale');if(!b||b.__mfixReceiptHook)return false;var old=b.onclick;if(typeof old!=='function')return false;b.onclick=function(){var s=settings(),enabled=s.autoPrint!==false;s.autoPrint=false;save(s);old.call(this);if(enabled){setTimeout(function(){try{var a=JSON.parse(localStorage.getItem('mfix_completed_sales_v1')||'[]');var sale=Array.isArray(a)&&a.length?a[a.length-1]:null;if(sale&&typeof window.printDoc==='function'){window.printDoc(sale.id);}}catch(e){console.error('[MFIX] raster receipt print failed',e);}finally{var r=settings();r.autoPrint=enabled;save(r);}},350);}else{var r=settings();r.autoPrint=false;save(r);} };b.__mfixReceiptHook=true;return true;}"+
         "var n=0,t=setInterval(function(){n++;if(install()||n>=40)clearInterval(t);},250);console.log('[MFIX] receipt printing raster pipeline patch active');})();";
 
+    /** Installs automatic receipt printing on an already-active WebView. */
+    public static void install(WebView webView) {
+        if (webView == null) return;
+        webView.postDelayed(() -> webView.evaluateJavascript(PATCH, null), 4200);
+    }
+
     @Override protected void onCreate(Bundle savedInstanceState){
         super.onCreate(savedInstanceState);
         View root=((ViewGroup)findViewById(android.R.id.content)).getChildAt(0);
-        if(root instanceof WebView)((WebView)root).postDelayed(()->((WebView)root).evaluateJavascript(PATCH,null),5200);
+        if(root instanceof WebView) install((WebView)root);
     }
 }
