@@ -17,6 +17,7 @@ SETTINGS_DIAGNOSTICS = ROOT / "app/src/main/java/com/mfix/pos/SettingsDiagnostic
 STOCK_HISTORY = ROOT / "app/src/main/java/com/mfix/pos/StockHistoryPatchActivity.java"
 KEYBOARD_SHORTCUT = ROOT / "app/src/main/java/com/mfix/pos/KeyboardShortcutPatchActivity.java"
 BACKUP_USERS = ROOT / "app/src/main/java/com/mfix/pos/BackupUsersConsistencyPatchActivity.java"
+GRANULAR_LAUNCHER = ROOT / "app/src/main/java/com/mfix/pos/GranularPermissionsActivePatchActivity.java"
 
 
 def require(text: str, needle: str, label: str, errors: list[str]) -> None:
@@ -26,7 +27,7 @@ def require(text: str, needle: str, label: str, errors: list[str]) -> None:
 
 def main() -> int:
     errors: list[str] = []
-    for path in (INDEX, MANIFEST, PATCHED, RUNTIME, YESH, MAIN, INVENTORY, INVENTORY_MGMT, RELEASE_SCOPE, SETTINGS_DIAGNOSTICS, STOCK_HISTORY, KEYBOARD_SHORTCUT, BACKUP_USERS):
+    for path in (INDEX, MANIFEST, PATCHED, RUNTIME, YESH, MAIN, INVENTORY, INVENTORY_MGMT, RELEASE_SCOPE, SETTINGS_DIAGNOSTICS, STOCK_HISTORY, KEYBOARD_SHORTCUT, BACKUP_USERS, GRANULAR_LAUNCHER):
         if not path.is_file():
             errors.append(f"Required source file missing: {path.relative_to(ROOT)}")
     if errors:
@@ -46,6 +47,7 @@ def main() -> int:
     stock_history = STOCK_HISTORY.read_text(encoding="utf-8")
     keyboard_shortcut = KEYBOARD_SHORTCUT.read_text(encoding="utf-8")
     backup_users = BACKUP_USERS.read_text(encoding="utf-8")
+    granular_launcher = GRANULAR_LAUNCHER.read_text(encoding="utf-8")
 
     require(html, "'inventoryHistory'", "inventory history is part of persisted misc data", errors)
     require(html, "inventoryHistory:[]", "inventory history exists in application state", errors)
@@ -98,12 +100,20 @@ def main() -> int:
     require(inventory_mgmt, "IMEI / סידורי", "inventory serial/IMEI editing remains installed", errors)
     require(stock_history, "extends ReleaseScopePatchActivity", "stock history preserves the release runtime chain", errors)
 
-    launcher_ok = ('android:name=".KeyboardShortcutPatchActivity"' in manifest or
+    launcher_ok = ('android:name=".GranularPermissionsActivePatchActivity"' in manifest or
+                   'android:name=".KeyboardShortcutPatchActivity"' in manifest or
                    'android:name=".PrinterDiagnosticsPatchActivity"' in manifest or
                    'android:name=".YeshInvoiceActivePatchActivity"' in manifest or
                    'android:name=".BackupUsersConsistencyPatchActivity"' in manifest)
     if not launcher_ok:
         errors.append("Missing invariant: active MFIX launcher is configured")
+    if 'android:name=".GranularPermissionsActivePatchActivity"' in manifest:
+        require(granular_launcher, "PrinterManagementPatchActivity.install(webView)", "active launcher installs printer management", errors)
+        require(granular_launcher, "CheckoutControlsPatchActivity.install(webView)", "active launcher installs checkout controls", errors)
+        require(granular_launcher, "PaymentManagementPatchActivity.install(webView)", "active launcher installs payment management", errors)
+        require(granular_launcher, "YeshInvoicePatchActivity.install(webView)", "active launcher installs Yesh Invoice layer", errors)
+        require(granular_launcher, "BackupRestoreLiveInstaller.install(webView)", "active launcher installs backup/restore", errors)
+        require(granular_launcher, "LowStockDashboardPatchActivity.install(webView)", "active launcher installs low-stock dashboard", errors)
     if 'android:name=".PrinterDiagnosticsPatchActivity"' in manifest:
         require(inventory_mgmt, "extends ReportsDashboardPatchActivity", "printer diagnostics chain reaches inventory management", errors)
         require(keyboard_shortcut, "extends CheckoutControlsPatchActivity", "keyboard shortcut remains in the printer diagnostics runtime chain", errors)
@@ -139,24 +149,13 @@ def main() -> int:
     require(manifest, 'android:label="MFIX"', "application label is MFIX", errors)
     require(manifest, 'android:icon="@drawable/ic_mfix"', "MFIX branded icon is configured", errors)
 
-    for needle, label in (
-        ("listUsbPrinters", "USB printer discovery"),
-        ("getPrinterCapabilities", "printer capability diagnostics"),
-        ("getUsbPrinterDiagnostics", "USB printer diagnostics"),
-        ("requestUsbPrinterTest", "USB permission/test flow"),
-        ("printRasterToDevice", "selected-printer raster printing"),
-        ("printEscPosToDevice", "ESC/POS printing"),
-        ("openCashDrawer", "cash drawer pulse"),
-        ("saveTextFile", "native Android backup file export"),
-        ("onShowFileChooser", "native Android file chooser"),
-    ):
+    for needle, label in (("listUsbPrinters", "USB printer discovery"),("getPrinterCapabilities", "printer capability diagnostics"),("getUsbPrinterDiagnostics", "USB printer diagnostics"),("requestUsbPrinterTest", "USB permission/test flow"),("printRasterToDevice", "selected-printer raster printing"),("printEscPosToDevice", "ESC/POS printing"),("openCashDrawer", "cash drawer pulse"),("saveTextFile", "native Android backup file export"),("onShowFileChooser", "native Android file chooser")):
         require(bridge, needle, label, errors)
 
     if errors:
         print("MFIX source invariant check failed:")
         print("\n".join(f"- {e}" for e in errors))
         return 1
-
     print("MFIX source invariant check passed")
     return 0
 
