@@ -27,9 +27,15 @@ public class YeshInvoicePatchActivity extends PrinterManagementPatchActivity {
         "function hookCheckout(){if(window.__mfixYeshCheckoutHook)return true;if(typeof window.finalizeSale==='function'){var old=window.finalizeSale;window.finalizeSale=async function(){var before=(window.STATE&&Array.isArray(STATE.sales)?STATE.sales.length:0);var result=await old.apply(this,arguments);var c=cfg();if(c.enabled&&c.autoSync&&window.STATE&&Array.isArray(STATE.sales)&&STATE.sales.length>before)queueSale(STATE.sales[STATE.sales.length-1]);return result;};}window.mfixOnSaleCompleted=function(sale){var c=cfg();if(c.enabled&&c.autoSync)queueSale(sale);};window.__mfixYeshCheckoutHook=true;return true;}"+
         "function inject(){hookInventoryImport();var host=document.querySelector('.topbar-right');if(host&&!document.getElementById('mfixYeshInvoiceButton')){var b=document.createElement('button');b.id='mfixYeshInvoiceButton';b.className='btn btn-outline';b.textContent='🧾 יש חשבונית';b.onclick=window.mfixOpenYeshInvoiceSettings;host.appendChild(b);}hookCheckout();}inject();setInterval(inject,1000);console.log('[MFIX] Yesh Invoice + inventory import patch active');})();";
 
+    /** Installs the Yesh Invoice layer into the already-running POS WebView. */
+    public static void install(WebView webView){
+        if(webView==null)return;
+        webView.postDelayed(()->webView.evaluateJavascript(PATCH,null),2100);
+    }
+
     @Override protected void onCreate(Bundle savedInstanceState){
         super.onCreate(savedInstanceState);
         View root=((ViewGroup)findViewById(android.R.id.content)).getChildAt(0);
-        if(root instanceof WebView)((WebView)root).postDelayed(()->((WebView)root).evaluateJavascript(PATCH,null),2100);
+        if(root instanceof WebView)install((WebView)root);
     }
 }
