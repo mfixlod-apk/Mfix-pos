@@ -5,8 +5,8 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.webkit.WebView;
 
-/** Adds a practical per-product IMEI/serial registry on top of inventory management. */
-public class ProductSerialManagementPatchActivity extends InventoryManagementPatchActivity {
+/** Adds a practical per-product IMEI/serial registry on top of the native inventory/backup file bridge. */
+public class ProductSerialManagementPatchActivity extends InventoryImportPatchActivity {
     private static final String PATCH =
         "(function(){if(window.__mfixSerialRegistryV2)return;window.__mfixSerialRegistryV2=true;"+
         "function esc(s){return String(s==null?'':s).replace(/[&<>\\\"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','\\\"':'&quot;',\"'\":'&#39;'}[c];});}"+
