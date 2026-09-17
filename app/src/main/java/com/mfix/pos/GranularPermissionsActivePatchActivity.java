@@ -5,7 +5,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.webkit.WebView;
 
-/** Live launcher: inventory + IMEI/serial + product editing + user permissions + checkout controls + payments + reports + Yesh Invoice + backup/restore. */
+/** Live launcher: inventory + IMEI/serial + product editing + user permissions + checkout controls + payments + reports + Yesh Invoice + backup/restore + cash shift. */
 public class GranularPermissionsActivePatchActivity extends ProductEditPatchActivity {
     private static final String PATCH =
         "(function(){if(window.__mfixGranularPermissions)return;window.__mfixGranularPermissions=true;"+
@@ -33,6 +33,8 @@ public class GranularPermissionsActivePatchActivity extends ProductEditPatchActi
                 CheckoutControlsPatchActivity.install(webView);
                 PaymentManagementPatchActivity.install(webView);
                 CompletedSalesReportsSyncPatchActivity.install(webView);
+                DailyClosingPatchActivity.install(webView);
+                CashRegisterShiftPatchActivity.install(webView);
                 YeshInvoicePatchActivity.install(webView);
                 BackupRestoreLiveInstaller.install(webView);
             },2500);
