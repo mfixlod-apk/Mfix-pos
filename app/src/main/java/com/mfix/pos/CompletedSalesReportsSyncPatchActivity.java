@@ -12,9 +12,15 @@ public class CompletedSalesReportsSyncPatchActivity extends CheckoutCompletionPa
         "function sync(){try{if(!window.STATE)return;var raw=localStorage.getItem('mfix_completed_sales_v1')||'[]',sales=JSON.parse(raw);if(!Array.isArray(sales))sales=[];if(!Array.isArray(window.STATE.sales))window.STATE.sales=[];var byId={};window.STATE.sales.forEach(function(s){if(s&&s.id)byId[String(s.id)]=s;});sales.forEach(function(s){if(s&&s.id)byId[String(s.id)]=s;});var merged=Object.keys(byId).map(function(k){return byId[k];}).sort(function(a,b){return new Date(a.at||a.createdAt||0)-new Date(b.at||b.createdAt||0);});if(merged.length!==window.STATE.sales.length){window.STATE.sales=merged;if(typeof window.saveKey==='function')window.saveKey('sales',merged);if(typeof window.renderReports==='function')window.renderReports();}}catch(e){console.error('[MFIX SALES REPORT SYNC]',e);}}"+
         "sync();setInterval(sync,1000);console.log('[MFIX] completed sales report sync active');})();";
 
+    /** Installs the report-sales synchronization into the already-running POS WebView. */
+    public static void install(WebView webView){
+        if(webView==null)return;
+        webView.postDelayed(()->webView.evaluateJavascript(PATCH,null),900);
+    }
+
     @Override protected void onCreate(Bundle savedInstanceState){
         super.onCreate(savedInstanceState);
         View root=((ViewGroup)findViewById(android.R.id.content)).getChildAt(0);
-        if(root instanceof WebView)((WebView)root).postDelayed(()->((WebView)root).evaluateJavascript(PATCH,null),2600);
+        if(root instanceof WebView)install((WebView)root);
     }
 }
