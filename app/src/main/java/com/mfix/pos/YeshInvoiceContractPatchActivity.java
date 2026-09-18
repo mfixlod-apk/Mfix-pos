@@ -28,7 +28,7 @@ public class YeshInvoiceContractPatchActivity extends GranularPermissionsActiveP
     private final class LauncherBridge {
         @JavascriptInterface public void open(){
             runOnUiThread(()->startActivity(new android.content.Intent(
-                YeshInvoiceWebActivity.this, YeshInvoiceWebActivity.class)));
+                YeshInvoiceContractPatchActivity.this, YeshInvoiceWebActivity.class)));
         }
     }
 }
