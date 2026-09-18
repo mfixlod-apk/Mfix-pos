@@ -15,8 +15,8 @@ import java.io.OutputStream;
 import java.io.ByteArrayOutputStream;
 
 public class YeshInvoiceContractPatchActivity extends GranularPermissionsActivePatchActivity {
-    private static final int REQ_SAVE_BACKUP = 4101;
-    private static final int REQ_OPEN_BACKUP = 4102;
+    private static final int REQ_SAVE_BACKUP = 5101;
+    private static final int REQ_OPEN_BACKUP = 5102;
     private static final String PATCH =
         "(function(){if(window.__mfixYeshLauncher)return;window.__mfixYeshLauncher=true;" +
         "function add(){if(document.getElementById('mfixYeshOpenButton'))return;var host=document.querySelector('#topRight')||document.querySelector('.topbar-right')||document.querySelector('.topbar');" +
