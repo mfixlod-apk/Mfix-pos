@@ -39,7 +39,7 @@ tasks.register('prepareMfixAssets') {
         // because GitHub's text-content endpoint has payload limits. Reassemble
         // it byte-for-byte (UTF-8 text) before packaging the Android assets.
         def partsDir = new File(outDir, 'content_parts')
-        def parts = partsDir.listFiles({ f -> f.name ==~ /\\d{2}\\.js/ } as FileFilter)
+        def parts = partsDir.listFiles({ f -> f.name ==~ /\d{2}\.js/ } as FileFilter)
         if (!parts || parts.length != 19) {
             throw new GradleException("MFIX original content.js requires 19 parts; found " + (parts ? parts.length : 0))
         }
