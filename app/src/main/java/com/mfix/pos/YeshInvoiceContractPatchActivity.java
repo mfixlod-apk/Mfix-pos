@@ -2,6 +2,7 @@ package com.mfix.pos;
 
 import android.app.AlertDialog;
 import android.content.Intent;
+import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
 import android.util.Base64;
@@ -89,7 +90,7 @@ public class YeshInvoiceContractPatchActivity extends GranularPermissionsActiveP
                 ByteArrayOutputStream b=new ByteArrayOutputStream();byte[] buf=new byte[8192];int n;
                 while((n=in.read(buf))!=-1)b.write(buf,0,n);in.close();
                 String encoded=Base64.encodeToString(b.toByteArray(),Base64.NO_WRAP);
-                notifyWeb("window.mfixReceiveNativeBackup&&window.mfixReceiveNativeBackup('"+encoded+"');");
+                String fileName="mfix-pos-backup.json"; try{Cursor c=getContentResolver().query(uri,new String[]{android.provider.OpenableColumns.DISPLAY_NAME},null,null,null); if(c!=null&&c.moveToFirst()) fileName=c.getString(0); if(c!=null)c.close();}catch(Exception ignored){} notifyWeb("window.mfixReceiveNativeBackup&&window.mfixReceiveNativeBackup("+org.json.JSONObject.quote(encoded)+","+org.json.JSONObject.quote(fileName)+");");
             }
         }catch(Exception e){
             notifyWeb("toast('פעולת הקובץ נכשלה: '+"+js(e.getMessage())+",'err');");
