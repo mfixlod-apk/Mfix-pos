@@ -100,7 +100,8 @@ def main() -> int:
     require(inventory_mgmt, "IMEI / סידורי", "inventory serial/IMEI editing remains installed", errors)
     require(stock_history, "extends ReleaseScopePatchActivity", "stock history preserves the release runtime chain", errors)
 
-    launcher_ok = ('android:name=".GranularPermissionsActivePatchActivity"' in manifest or
+    launcher_ok = ('android:name=".YeshInvoiceContractPatchActivity"' in manifest or
+                   'android:name=".GranularPermissionsActivePatchActivity"' in manifest or
                    'android:name=".KeyboardShortcutPatchActivity"' in manifest or
                    'android:name=".PrinterDiagnosticsPatchActivity"' in manifest or
                    'android:name=".YeshInvoiceActivePatchActivity"' in manifest or
