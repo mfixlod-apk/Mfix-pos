@@ -31,7 +31,7 @@ public class YeshInvoiceContractPatchActivity extends GranularPermissionsActiveP
             WebView webView=(WebView)root;
             webView.getSettings().setJavaScriptEnabled(true);
             webView.addJavascriptInterface(new LauncherBridge(), "AndroidYeshLauncher");
-            webView.addJavascriptInterface(new BackupBridge(), "AndroidPrinter");
+            webView.addJavascriptInterface(new BackupBridge(), "AndroidBackup");
             webView.postDelayed(()->webView.evaluateJavascript(PATCH,null),4000);
         }
     }
