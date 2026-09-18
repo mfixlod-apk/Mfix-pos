@@ -120,6 +120,7 @@ public class YeshInvoiceWebActivity extends Activity {
                 status.setText("יש חשבונית פתוח: " + url);
                 if (salePayload != null && !salePayload.equals("{}")) {
                     view.postDelayed(YeshInvoiceWebActivity.this::autoPrepareSale, 700);
+                    view.postDelayed(YeshInvoiceWebActivity.this::autoReplaySavedFlow, 1500);
                 }
             }
         });
@@ -152,6 +153,17 @@ public class YeshInvoiceWebActivity extends Activity {
             "function setValue(e,v){var proto=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value');if(e.tagName==='TEXTAREA')proto=Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value');if(proto&&proto.set)proto.set.call(e,String(v));else e.value=String(v);e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));}" +
             "window.MFIX_REPLAY=function(flowText,payloadText){var flow;var payload;try{flow=JSON.parse(flowText);payload=JSON.parse(payloadText||'{}');}catch(e){AndroidYesh.result('לימוד פגום — לא ניתן להפעיל');return;}var i=0;function next(){if(i>=flow.length){AndroidYesh.result('לימוד הסתיים בהצלחה');return;}var step=flow[i++];var e=find(step.meta||{});if(!e){AndroidYesh.result('הלימוד נעצר בשלב '+i+' — האלמנט לא נמצא');return;}if(step.op==='click'){e.scrollIntoView({block:'center',inline:'center'});e.click();setTimeout(next,350);return;}if(step.op==='change'){var v=step.value==='__MFIX_DYNAMIC__'?dynamicValue(payload,step.meta||{}):step.value;setValue(e,v);setTimeout(next,250);return;}next();}next();};})();";
         web.evaluateJavascript(script, null);
+    }
+
+    private void autoReplaySavedFlow(){
+        final String flow = getSharedPreferences("mfix_yesh_learning", MODE_PRIVATE).getString("flow", "");
+        if (flow == null || flow.isEmpty()) {
+            status.setText("אין לימוד שמור — בצע לימוד חד-פעמי");
+            return;
+        }
+        final String payload = salePayload == null ? "{}" : salePayload;
+        status.setText("מפעיל אוטומטית את תהליך יש חשבונית…");
+        web.evaluateJavascript("window.MFIX_REPLAY&&window.MFIX_REPLAY(" + js(flow) + "," + js(payload) + ");", null);
     }
 
     private void autoPrepareSale(){
