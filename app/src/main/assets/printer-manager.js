@@ -23,11 +23,16 @@
     try { stateDefault=window.STATE && window.STATE.settings ? String(window.STATE.settings.defaultPrinterId||'') : ''; } catch(_){}
     return String(localStorage.getItem('mfix_default_printer_v1')||stateDefault||s.device||'');
   }
+  function paperMode(){
+    var s=printerSettings();
+    return String(s.paperMode||'80MM').toUpperCase()==='58MM'?'58MM':'80MM';
+  }
   function setDefaultPrinter(p){
     if(!p || !p.id) return false;
     var id=String(p.id);
     localStorage.setItem('mfix_default_printer_v1', id);
     var s=printerSettings(); s.device=id; s.enabled=true;
+    if(!s.paperMode) s.paperMode='80MM';
     localStorage.setItem('mfix_printer_settings_v1', JSON.stringify(s));
     try {
       if(window.STATE && window.STATE.settings){
@@ -40,6 +45,12 @@
       }
     } catch(e){ console.error('[MFIX PRINTER DEFAULT SYNC]',e); }
     return true;
+  }
+  function savePaperMode(mode){
+    mode=String(mode||'80MM').toUpperCase()==='58MM'?'58MM':'80MM';
+    var s=printerSettings(); s.paperMode=mode;
+    localStorage.setItem('mfix_printer_settings_v1',JSON.stringify(s));
+    try{ if(window.STATE&&window.STATE.settings){window.STATE.settings.printerPaperMode=mode;if(typeof window.persist==='function')window.persist('settings');} }catch(e){}
   }
   function selectedPrinter(ps){
     var id=defaultPrinterId();
@@ -72,11 +83,13 @@
       +'<div style="display:flex;justify-content:space-between;align-items:center"><h3 style="margin:0">ניהול מדפסות</h3><div style="display:flex;align-items:center;gap:8px"><button id="mfixPrinterRefresh" class="btn btn-ghost" style="padding:5px 9px">↻ רענן</button><button id="mfixPrinterClose" style="border:0;background:none;font-size:22px">×</button></div></div>'
       +'<div style="margin:10px 0 14px;color:#6b7686;font-size:13px">מדפסות USB שהתגלו על ידי MFIX. בחר מדפסת ברירת מחדל לפני הדפסת קבלות אוטומטית.</div>'
       +'<div id="mfixPrinterSummary">'+summary+'</div>'
+      +'<div style="display:flex;align-items:center;gap:10px;margin:0 0 12px;padding:9px 11px;border:1px solid #e2e7ef;border-radius:10px"><b>רוחב נייר</b><select id="mfixPrinterPaperMode" style="padding:7px;border-radius:8px;border:1px solid #ccd4df"><option value="80MM" '+(paperMode()==='80MM'?'selected':'')+'>80 מ״מ</option><option value="58MM" '+(paperMode()==='58MM'?'selected':'')+'>58 מ״מ</option></select><span style="font-size:12px;color:#6b7686">משמש להדפסת PDF</span></div>'
       +'<div id="mfixPrinterRows">'+rows+'</div>'
       +'</div></div>';
     document.body.insertAdjacentHTML('beforeend',html);
     document.getElementById('mfixPrinterClose').onclick=function(){document.getElementById('mfixPrinterOverlay').remove();};
     document.getElementById('mfixPrinterRefresh').onclick=function(){document.getElementById('mfixPrinterOverlay').remove();open();};
+    document.getElementById('mfixPrinterPaperMode').onchange=function(){savePaperMode(this.value);};
     document.getElementById('mfixPrinterOverlay').onclick=function(e){if(e.target===this)this.remove();};
     document.querySelectorAll('[data-mfix-action]').forEach(function(btn){btn.onclick=function(){
       var id=btn.getAttribute('data-id'), action=btn.getAttribute('data-mfix-action');
