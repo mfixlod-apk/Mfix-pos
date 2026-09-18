@@ -35,7 +35,7 @@ public class YeshInvoiceWebActivity extends Activity {
     private UsbManager usbManager;
     private byte[] pendingPdf;
     private String pendingPaperMode = "80MM";
-    private final BroadcastReceiver yeshUsbReceiver = new BroadcastReceiver() { public void onReceive(Context c, Intent i) { if(!USB_ACTION.equals(i.getAction()))return; UsbDevice d=i.getParcelableExtra(UsbManager.EXTRA_DEVICE); boolean ok=i.getBooleanExtra(UsbManager.EXTRA_USB_PERMISSION_GRANTED,false); if(ok&&d!=null&&pendingPdf!=null){byte[] p=pendingPdf;String m=pendingPaperMode;pendingPdf=null;new Thread(()->printPdfNative(d,p,m)).start();} } };
+    private final BroadcastReceiver yeshUsbReceiver = new BroadcastReceiver() { public void onReceive(Context c, Intent i) { if(!USB_ACTION.equals(i.getAction()))return; UsbDevice d=i.getParcelableExtra(UsbManager.EXTRA_DEVICE); boolean ok=i.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED,false); if(ok&&d!=null&&pendingPdf!=null){byte[] p=pendingPdf;String m=pendingPaperMode;pendingPdf=null;new Thread(()->printPdfNative(d,p,m)).start();} } };
     private WebView web;
     private EditText product;
     private EditText price;
