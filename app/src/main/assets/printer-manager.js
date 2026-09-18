@@ -19,13 +19,28 @@
   }
   function defaultPrinterId(){
     var s=printerSettings();
-    return String(localStorage.getItem('mfix_default_printer_v1')||s.device||'');
+    var stateDefault='';
+    try { stateDefault=window.STATE && window.STATE.settings ? String(window.STATE.settings.defaultPrinterId||'') : ''; } catch(_){}
+    return String(localStorage.getItem('mfix_default_printer_v1')||stateDefault||s.device||'');
   }
   function setDefaultPrinter(p){
     if(!p || !p.id) return false;
-    localStorage.setItem('mfix_default_printer_v1', String(p.id));
-    var s=printerSettings(); s.device=String(p.id); s.enabled=true;
+    var id=String(p.id);
+    localStorage.setItem('mfix_default_printer_v1', id);
+    var s=printerSettings(); s.device=id; s.enabled=true;
     localStorage.setItem('mfix_printer_settings_v1', JSON.stringify(s));
+    // Keep MFIX's application settings in sync with the printer-manager selection.
+    // This matters because direct Android raster printing reads STATE.settings.printers/defaultPrinterId.
+    try {
+      if(window.STATE && window.STATE.settings){
+        window.STATE.settings.defaultPrinterId=id;
+        var printers=Array.isArray(window.STATE.settings.printers)?window.STATE.settings.printers:[];
+        var exists=printers.some(function(x){return String(x.id)===id;});
+        if(!exists) printers.push({id:id,name:String(p.name||id),type:'USB',address:id});
+        window.STATE.settings.printers=printers;
+        if(typeof window.persist==='function') window.persist('settings');
+      }
+    } catch(e){ console.error('[MFIX PRINTER DEFAULT SYNC]',e); }
     return true;
   }
   function selectedPrinter(ps){
