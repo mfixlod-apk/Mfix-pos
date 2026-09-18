@@ -63,6 +63,9 @@ jobs:
           APKSIGNER="${ANDROID_HOME:-$ANDROID_SDK_ROOT}/build-tools/35.0.0/apksigner"
           test -x "$APKSIGNER"
           "$APKSIGNER" verify --verbose "$APK"
+          unzip -p "$APK" assets/content.js > /tmp/content.js
+          test -s /tmp/content.js
+          node --check /tmp/content.js
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
