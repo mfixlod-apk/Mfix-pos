@@ -2,7 +2,6 @@ package com.mfix.pos;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
-import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
@@ -28,16 +27,11 @@ public class YeshInvoiceWebActivity extends Activity {
     private TextView status;
     private String salePayload = "{}";
     private boolean learning = false;
-    private final SharedPreferences prefs;
-
-    public YeshInvoiceWebActivity() {
-        prefs = null;
-    }
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        final SharedPreferences sp = getSharedPreferences("mfix_yesh_learning", MODE_PRIVATE);
+        final android.content.SharedPreferences sp = getSharedPreferences("mfix_yesh_learning", MODE_PRIVATE);
         salePayload = getIntent().getStringExtra("mfix_sale_payload");
         if (salePayload == null) salePayload = "{}";
 
@@ -60,7 +54,7 @@ public class YeshInvoiceWebActivity extends Activity {
             learning = !learning;
             if (learning) {
                 learn.setText("⏹ עצור ושמור");
-                status.setText("מצב לימוד פעיל — בצע עכשיו את הפעולות ביש חשבונית");
+                status.setText("מצב לימוד פעיל — בצע פעם אחת את התהליך ביש חשבונית");
                 web.evaluateJavascript("window.MFIX_LEARNING_START&&window.MFIX_LEARNING_START();", null);
             } else {
                 learn.setText("🎓 התחל לימוד");
@@ -77,7 +71,8 @@ public class YeshInvoiceWebActivity extends Activity {
                 return;
             }
             status.setText("מפעיל את רצף הלימוד…");
-            web.evaluateJavascript("window.MFIX_REPLAY&&window.MFIX_REPLAY(" + js(flow) + ");", null);
+            String payload = salePayload == null ? "{}" : salePayload;
+            web.evaluateJavascript("window.MFIX_REPLAY&&window.MFIX_REPLAY(" + js(flow) + "," + js(payload) + ");", null);
         });
 
         product = new EditText(this);
@@ -144,15 +139,18 @@ public class YeshInvoiceWebActivity extends Activity {
             "(function(){if(window.__MFIX_LEARNING_INSTALLED)return;window.__MFIX_LEARNING_INSTALLED=true;" +
             "function txt(e){return ((e.innerText||e.textContent||'').trim()).replace(/\\s+/g,' ').slice(0,120);}" +
             "function meta(e){var r=e.getBoundingClientRect();return {tag:e.tagName||'',id:e.id||'',name:e.getAttribute('name')||'',type:e.getAttribute('type')||'',placeholder:e.getAttribute('placeholder')||'',aria:e.getAttribute('aria-label')||'',text:txt(e),x:Math.round(r.left),y:Math.round(r.top),w:Math.round(r.width),h:Math.round(r.height)};}" +
-            "function selector(e){if(e.id)return '#'+CSS.escape(e.id);if(e.name)return e.tagName.toLowerCase()+'[name="'+String(e.name).replace(/"/g,'\\\\"')+'"]';return null;}" +
-            "function useful(e){if(!e||e===document.body||e===document.documentElement)return false;var t=(e.tagName||'').toLowerCase();return ['button','a','input','textarea','select','option','label'].indexOf(t)>=0||e.getAttribute('role');}" +
+            "function selector(e){try{if(e.id)return '#'+CSS.escape(e.id);if(e.name)return e.tagName.toLowerCase()+'[name=\"'+String(e.name).replace(/\"/g,'\\\\\"')+'\"]';}catch(x){}return null;}" +
+            "function useful(e){if(!e||e===document.body||e===document.documentElement)return false;var t=(e.tagName||'').toLowerCase();return ['button','a','input','textarea','select','option','label'].indexOf(t)>=0||!!e.getAttribute('role');}" +
             "function target(e){while(e&&e!==document.body&&!useful(e))e=e.parentElement;return e||null;}" +
             "window.__MFIX_FLOW=[];window.__MFIX_LEARNING=false;" +
             "window.MFIX_LEARNING_START=function(){window.__MFIX_FLOW=[];window.__MFIX_LEARNING=true;AndroidYesh.result('לימוד התחיל — בצע את התהליך פעם אחת');};" +
             "window.MFIX_LEARNING_STOP=function(){window.__MFIX_LEARNING=false;AndroidYesh.saveLearning(JSON.stringify(window.__MFIX_FLOW));};" +
             "document.addEventListener('click',function(ev){if(!window.__MFIX_LEARNING)return;var e=target(ev.target);if(!e)return;var m=meta(e);window.__MFIX_FLOW.push({op:'click',meta:m,selector:selector(e)});AndroidYesh.result('נלכדה לחיצה: '+(m.text||m.aria||m.placeholder||m.id||m.tag));},true);" +
-            "document.addEventListener('change',function(ev){if(!window.__MFIX_LEARNING)return;var e=target(ev.target);if(!e)return;var m=meta(e);var v=(e.value!==undefined?String(e.value):'');var dynamic=(e.tagName==='INPUT'||e.tagName==='TEXTAREA')&&((m.placeholder+' '+m.name+' '+m.id+' '+m.aria).toLowerCase().match(/מוצר|פריט|שם|מחיר|סכום|כמות|quantity|price|amount|product|item/));window.__MFIX_FLOW.push({op:'change',meta:m,selector:selector(e),value:dynamic?'__MFIX_DYNAMIC__':v});AndroidYesh.result('נלכד שינוי: '+(m.placeholder||m.name||m.id||m.tag));},true);" +
-            "})();";
+            "document.addEventListener('change',function(ev){if(!window.__MFIX_LEARNING)return;var e=target(ev.target);if(!e)return;var m=meta(e);var v=(e.value!==undefined?String(e.value):'');var key=(m.placeholder+' '+m.name+' '+m.id+' '+m.aria+' '+m.text).toLowerCase();var dynamic=/מוצר|פריט|שם|מחיר|סכום|כמות|quantity|price|amount|product|item/.test(key);window.__MFIX_FLOW.push({op:'change',meta:m,selector:selector(e),value:dynamic?'__MFIX_DYNAMIC__':v});AndroidYesh.result('נלכד שינוי: '+(m.placeholder||m.name||m.id||m.tag));},true);" +
+            "function find(m){var all=[].slice.call(document.querySelectorAll('input,textarea,select,button,a,[role]'));function ok(e){if(m.id&&e.id===m.id)return true;if(m.name&&e.getAttribute('name')===m.name)return true;if(m.aria&&e.getAttribute('aria-label')===m.aria)return true;if(m.placeholder&&e.getAttribute('placeholder')===m.placeholder)return true;var t=txt(e);if(m.text&&t===m.text)return true;return false;}var hit=all.find(ok);if(hit)return hit;return all.find(function(e){var r=e.getBoundingClientRect();return m.x>=r.left&&m.x<=r.right&&m.y>=r.top&&m.y<=r.bottom;})||null;}" +
+            "function dynamicValue(payload,m){var key=((m.placeholder||'')+' '+(m.name||'')+' '+(m.id||'')+' '+(m.aria||'')+' '+(m.text||'')).toLowerCase();var cart=(payload&&payload.cart)||[];var first=cart[0]||{};if(/מחיר|סכום|price|amount/.test(key))return first.unitPrice==null?'':String(first.unitPrice);if(/כמות|quantity|qty/.test(key))return first.qty==null?'1':String(first.qty);if(/מוצר|פריט|product|item|description/.test(key))return first.name||'';if(/טלפון|phone/.test(key))return payload.customerPhone||'';if(/לקוח|שם|customer|name/.test(key))return payload.customerName||'';return '';}" +
+            "function setValue(e,v){var proto=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value');if(e.tagName==='TEXTAREA')proto=Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value');if(proto&&proto.set)proto.set.call(e,String(v));else e.value=String(v);e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));}" +
+            "window.MFIX_REPLAY=function(flowText,payloadText){var flow;var payload;try{flow=JSON.parse(flowText);payload=JSON.parse(payloadText||'{}');}catch(e){AndroidYesh.result('לימוד פגום — לא ניתן להפעיל');return;}var i=0;function next(){if(i>=flow.length){AndroidYesh.result('לימוד הסתיים בהצלחה');return;}var step=flow[i++];var e=find(step.meta||{});if(!e){AndroidYesh.result('הלימוד נעצר בשלב '+i+' — האלמנט לא נמצא');return;}if(step.op==='click'){e.scrollIntoView({block:'center',inline:'center'});e.click();setTimeout(next,350);return;}if(step.op==='change'){var v=step.value==='__MFIX_DYNAMIC__'?dynamicValue(payload,step.meta||{}):step.value;setValue(e,v);setTimeout(next,250);return;}next();}next();};})();";
         web.evaluateJavascript(script, null);
     }
 
@@ -204,8 +202,8 @@ public class YeshInvoiceWebActivity extends Activity {
     }
 
     private String js(String s){
-        return "'" + String.valueOf(s).replace("\","\\").replace("'","\'").replace("
-"," ") + "'";
+        String v = String.valueOf(s);
+        return "'" + v.replace("\\","\\\\").replace("'","\\'").replace("\n"," ").replace("\r"," ") + "'";
     }
 
     private class Bridge {
