@@ -10,7 +10,7 @@ if(cb)cb();return Promise.resolve();}
 function remove(keys,cb){try{(Array.isArray(keys)?keys:[keys]).forEach(function(k){localStorage.removeItem(k);});}catch(_){}
 if(cb)cb();return Promise.resolve();}
 var listeners=[];
-window.__MFIX_ANDROID_RUNTIME_DISPATCH=function(msg){var answer=null;listeners.forEach(function(fn){try{fn(msg,null,function(r){answer=r;});}catch(_){}});return answer;};
+window.__MFIX_ANDROID_RUNTIME_DISPATCH=function(msg){return new Promise(function(resolve){var done=false;listeners.forEach(function(fn){try{fn(msg,null,function(r){if(!done){done=true;resolve(r);}});}catch(_){}});setTimeout(function(){if(!done){done=true;resolve(undefined);}},15000);});};
 window.chrome=window.chrome||{};
 window.chrome.storage=window.chrome.storage||{};
 window.chrome.storage.local={get:get,set:set,remove:remove};
