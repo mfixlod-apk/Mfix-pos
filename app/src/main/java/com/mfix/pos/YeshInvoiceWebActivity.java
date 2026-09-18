@@ -136,6 +136,7 @@ public class YeshInvoiceWebActivity extends Activity {
                 installAndroidExtensionShim();
                 installExtensionInterceptor();
                 installExtensionBackground();
+                installExtensionContent();
                 installLearningEngine();
                 status.setText("יש חשבונית פתוח: " + url);
                 if (salePayload != null && !salePayload.equals("{}")) {
@@ -179,6 +180,21 @@ public class YeshInvoiceWebActivity extends Activity {
             web.evaluateJavascript(new String(b.toByteArray(), java.nio.charset.StandardCharsets.UTF_8), null);
         } catch (Exception e) {
             status.setText("טעינת לוגיקת MFIX נכשלה: " + e.getMessage());
+        }
+    }
+
+    private void installExtensionContent() {
+        try {
+            InputStream in = getAssets().open("content.js");
+            ByteArrayOutputStream b = new ByteArrayOutputStream();
+            byte[] buf = new byte[8192];
+            int n;
+            while ((n = in.read(buf)) != -1) b.write(buf, 0, n);
+            in.close();
+            String script = new String(b.toByteArray(), StandardCharsets.UTF_8);
+            web.evaluateJavascript(script, null);
+        } catch (Exception e) {
+            status.setText("טעינת לוגיקת content.js נכשלה: " + e.getMessage());
         }
     }
 
