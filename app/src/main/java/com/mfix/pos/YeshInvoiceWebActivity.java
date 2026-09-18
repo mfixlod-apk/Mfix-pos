@@ -120,6 +120,7 @@ public class YeshInvoiceWebActivity extends Activity {
             @Override public void onPageFinished(WebView view, String url){
                 CookieManager.getInstance().flush();
                 installAndroidExtensionShim();
+                installExtensionBackground();
                 installLearningEngine();
                 status.setText("יש חשבונית פתוח: " + url);
                 if (salePayload != null && !salePayload.equals("{}")) {
@@ -137,6 +138,19 @@ public class YeshInvoiceWebActivity extends Activity {
         setContentView(root);
 
         web.loadUrl("https://user.yeshinvoice.co.il/");
+    }
+
+    private void installExtensionBackground() {
+        try {
+            java.io.InputStream in = getAssets().open("mfix_extension_background.js");
+            java.io.ByteArrayOutputStream b = new java.io.ByteArrayOutputStream();
+            byte[] buf = new byte[8192]; int n;
+            while ((n = in.read(buf)) != -1) b.write(buf, 0, n);
+            in.close();
+            web.evaluateJavascript(new String(b.toByteArray(), java.nio.charset.StandardCharsets.UTF_8), null);
+        } catch (Exception e) {
+            status.setText("טעינת לוגיקת MFIX נכשלה: " + e.getMessage());
+        }
     }
 
     private void installAndroidExtensionShim() {
