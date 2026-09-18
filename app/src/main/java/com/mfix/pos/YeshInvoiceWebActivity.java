@@ -17,6 +17,9 @@ import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
+import java.io.InputStream;
+import java.io.ByteArrayOutputStream;
+import java.nio.charset.StandardCharsets;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -116,6 +119,7 @@ public class YeshInvoiceWebActivity extends Activity {
         web.setWebViewClient(new WebViewClient(){
             @Override public void onPageFinished(WebView view, String url){
                 CookieManager.getInstance().flush();
+                installAndroidExtensionShim();
                 installLearningEngine();
                 status.setText("יש חשבונית פתוח: " + url);
                 if (salePayload != null && !salePayload.equals("{}")) {
@@ -133,6 +137,21 @@ public class YeshInvoiceWebActivity extends Activity {
         setContentView(root);
 
         web.loadUrl("https://user.yeshinvoice.co.il/");
+    }
+
+    private void installAndroidExtensionShim() {
+        try {
+            InputStream in = getAssets().open("mfix_extension_android_shim.js");
+            ByteArrayOutputStream b = new ByteArrayOutputStream();
+            byte[] buf = new byte[8192];
+            int n;
+            while ((n = in.read(buf)) != -1) b.write(buf, 0, n);
+            in.close();
+            String script = new String(b.toByteArray(), StandardCharsets.UTF_8);
+            web.evaluateJavascript(script, null);
+        } catch (Exception e) {
+            status.setText("טעינת שכבת Android נכשלה: " + e.getMessage());
+        }
     }
 
     private void installLearningEngine() {
