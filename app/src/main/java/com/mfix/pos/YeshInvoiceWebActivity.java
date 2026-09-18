@@ -3,7 +3,6 @@ package com.mfix.pos;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.os.Bundle;
-import android.os.Handler;
 import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebChromeClient;
@@ -26,7 +25,6 @@ public class YeshInvoiceWebActivity extends Activity {
     private EditText product;
     private EditText price;
     private TextView status;
-    private final Handler handler = new Handler();
     private String salePayload = "{}";
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -88,6 +86,9 @@ public class YeshInvoiceWebActivity extends Activity {
             @Override public void onPageFinished(WebView view, String url){
                 CookieManager.getInstance().flush();
                 status.setText("יש חשבונית מחובר/פתוח: " + url);
+                if (salePayload != null && !salePayload.equals("{}")) {
+                    view.postDelayed(YeshInvoiceWebActivity.this::autoPrepareSale, 700);
+                }
             }
         });
         web.setWebChromeClient(new WebChromeClient());
@@ -99,7 +100,6 @@ public class YeshInvoiceWebActivity extends Activity {
         setContentView(root);
 
         web.loadUrl("https://user.yeshinvoice.co.il/");
-        handler.postDelayed(this::autoPrepareSale, 2200);
     }
 
     private void autoPrepareSale(){
