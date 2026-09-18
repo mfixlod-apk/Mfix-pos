@@ -9,6 +9,13 @@ import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.hardware.usb.*;
+import android.app.PendingIntent;
+import android.content.*;
+import android.graphics.Bitmap;
+import android.graphics.pdf.PdfRenderer;
+import android.os.ParcelFileDescriptor;
+import android.util.Base64;
 import android.graphics.Color;
 import android.view.Gravity;
 import android.view.View;
@@ -24,6 +31,11 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 public class YeshInvoiceWebActivity extends Activity {
+    private static final String USB_ACTION = "com.mfix.pos.YESH_USB_PERMISSION";
+    private UsbManager usbManager;
+    private byte[] pendingPdf;
+    private String pendingPaperMode = "80MM";
+    private final BroadcastReceiver yeshUsbReceiver = new BroadcastReceiver() { public void onReceive(Context c, Intent i) { if(!USB_ACTION.equals(i.getAction()))return; UsbDevice d=i.getParcelableExtra(UsbManager.EXTRA_DEVICE); boolean ok=i.getBooleanExtra(UsbManager.EXTRA_USB_PERMISSION_GRANTED,false); if(ok&&d!=null&&pendingPdf!=null){byte[] p=pendingPdf;String m=pendingPaperMode;pendingPdf=null;new Thread(()->printPdfNative(d,p,m)).start();} } };
     private WebView web;
     private EditText product;
     private EditText price;
@@ -34,6 +46,8 @@ public class YeshInvoiceWebActivity extends Activity {
     @SuppressLint("SetJavaScriptEnabled")
     @Override protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        usbManager=(UsbManager)getSystemService(Context.USB_SERVICE);
+        IntentFilter uf=new IntentFilter(USB_ACTION); if(android.os.Build.VERSION.SDK_INT>=33)registerReceiver(yeshUsbReceiver,uf,Context.RECEIVER_NOT_EXPORTED); else registerReceiver(yeshUsbReceiver,uf);
         final android.content.SharedPreferences sp = getSharedPreferences("mfix_yesh_learning", MODE_PRIVATE);
         salePayload = getIntent().getStringExtra("mfix_sale_payload");
         if (salePayload == null) salePayload = "{}";
@@ -132,6 +146,7 @@ public class YeshInvoiceWebActivity extends Activity {
         });
         web.setWebChromeClient(new WebChromeClient());
         web.addJavascriptInterface(new Bridge(), "AndroidYesh");
+        web.addJavascriptInterface(new NativePrinterBridge(), "AndroidPrinter");
 
         root.addView(bar);
         root.addView(status);
@@ -265,6 +280,20 @@ public class YeshInvoiceWebActivity extends Activity {
         return "'" + v.replace("\\","\\\\").replace("'","\\'").replace("\n"," ").replace("\r"," ") + "'";
     }
 
+
+    private class NativePrinterBridge {
+        @JavascriptInterface public String submitPdfJob(String deviceName,String base64,String paperMode){
+            try{byte[] pdf=Base64.decode(base64,Base64.DEFAULT);UsbDevice d=findPrinter(deviceName);if(d==null)throw new Exception("לא נמצאה מדפסת USB מחוברת");if(!usbManager.hasPermission(d)){pendingPdf=pdf;pendingPaperMode=paperMode==null?"80MM":paperMode;int f=PendingIntent.FLAG_UPDATE_CURRENT;if(android.os.Build.VERSION.SDK_INT>=31)f|=PendingIntent.FLAG_MUTABLE;PendingIntent pi=PendingIntent.getBroadcast(YeshInvoiceWebActivity.this,17,new Intent(USB_ACTION).setPackage(getPackageName()),f);usbManager.requestPermission(d,pi);return "USB_PERMISSION_REQUESTED";}new Thread(()->printPdfNative(d,pdf,paperMode)).start();return "QUEUED";}catch(Exception e){return "ERROR:"+e.getMessage();}
+        }
+    }
+    private UsbDevice findPrinter(String name){for(UsbDevice d:usbManager.getDeviceList().values()){if(name!=null&&!name.isEmpty()&&!name.equals(d.getDeviceName()))continue;if(preferredPrinterInterface(d)!=null)return d;}return null;}
+    private UsbInterface preferredPrinterInterface(UsbDevice d){UsbInterface f=null;for(int i=0;i<d.getInterfaceCount();i++){UsbInterface in=d.getInterface(i);boolean out=false;for(int e=0;e<in.getEndpointCount();e++){UsbEndpoint ep=in.getEndpoint(e);if(ep.getDirection()==UsbConstants.USB_DIR_OUT&&ep.getType()==UsbConstants.USB_ENDPOINT_XFER_BULK){out=true;break;}}if(!out)continue;if(in.getInterfaceClass()==UsbConstants.USB_CLASS_PRINTER)return in;if(f==null)f=in;}return f;}
+    private UsbEndpoint findOut(UsbDevice d){UsbInterface in=preferredPrinterInterface(d);if(in==null)return null;for(int e=0;e<in.getEndpointCount();e++){UsbEndpoint ep=in.getEndpoint(e);if(ep.getDirection()==UsbConstants.USB_DIR_OUT&&ep.getType()==UsbConstants.USB_ENDPOINT_XFER_BULK)return ep;}return null;}
+    private void printPdfNative(UsbDevice d,byte[] pdf,String mode){java.io.File tmp=null;PdfRenderer rr=null;UsbDeviceConnection c=null;UsbInterface in=null;try{tmp=java.io.File.createTempFile("mfix-", ".pdf",getCacheDir());try(java.io.FileOutputStream o=new java.io.FileOutputStream(tmp)){o.write(pdf);}rr=new PdfRenderer(ParcelFileDescriptor.open(tmp,ParcelFileDescriptor.MODE_READ_ONLY));int w="58MM".equalsIgnoreCase(mode)?464:640;c=usbManager.openDevice(d);if(c==null)throw new Exception("לא ניתן לפתוח מדפסת");UsbEndpoint ep=findOut(d);in=preferredPrinterInterface(d);if(ep==null||in==null||!c.claimInterface(in,true))throw new Exception("לא נמצאה יציאת USB להדפסה");writeEsc(c,ep,new byte[]{0x1b,0x40,0x1b,0x61,0x00});for(int p=0;p<rr.getPageCount();p++){PdfRenderer.Page page=rr.openPage(p);int h=Math.max(1,Math.round(w*(float)page.getHeight()/Math.max(1,page.getWidth())));Bitmap bm=Bitmap.createBitmap(w,h,Bitmap.Config.ARGB_8888);bm.eraseColor(android.graphics.Color.WHITE);page.render(bm,null,null,PdfRenderer.Page.RENDER_MODE_FOR_PRINT);page.close();byte[] raster=toMono(bm,w,h);bm.recycle();writeRaster(c,ep,raster,w,h);}writeEsc(c,ep,new byte[]{0x1b,0x64,0x03,0x1d,0x56,0x42,0x00});runOnUiThread(()->status.setText("החשבונית נשלחה למדפסת"));}catch(Exception e){runOnUiThread(()->status.setText("שגיאת הדפסה: "+e.getMessage()));}finally{try{if(in!=null&&c!=null)c.releaseInterface(in);}catch(Exception x){}try{if(c!=null)c.close();}catch(Exception x){}try{if(rr!=null)rr.close();}catch(Exception x){}if(tmp!=null)try{tmp.delete();}catch(Exception x){}}}
+    private byte[] toMono(Bitmap b,int w,int h){int bpl=(w+7)/8;byte[] out=new byte[bpl*h];for(int y=0;y<h;y++)for(int x=0;x<w;x++){int q=b.getPixel(x,y);int g=(android.graphics.Color.red(q)*299+android.graphics.Color.green(q)*587+android.graphics.Color.blue(q)*114)/1000;if(g<180)out[y*bpl+(x>>3)]|=(byte)(0x80>>(x&7));}return out;}
+    private void writeRaster(UsbDeviceConnection c,UsbEndpoint ep,byte[] d,int w,int h)throws Exception{int bpl=(w+7)/8;for(int y=0;y<h;y+=120){int rows=Math.min(120,h-y);byte[] p=new byte[8+rows*bpl];p[0]=0x1d;p[1]=0x76;p[2]=0x30;p[3]=0;p[4]=(byte)bpl;p[5]=(byte)(bpl>>8);p[6]=(byte)rows;p[7]=(byte)(rows>>8);System.arraycopy(d,y*bpl,p,8,rows*bpl);writeEsc(c,ep,p);}}
+    private void writeEsc(UsbDeviceConnection c,UsbEndpoint ep,byte[] d)throws Exception{int o=0;while(o<d.length){int n=Math.min(16384,d.length-o);int sent=c.bulkTransfer(ep,d,o,n,15000);if(sent<=0)throw new Exception("USB לא שלח נתונים");o+=sent;}}
+
     private class Bridge {
         @JavascriptInterface public void result(String text){
             runOnUiThread(()->{
@@ -285,5 +314,5 @@ public class YeshInvoiceWebActivity extends Activity {
                 runOnUiThread(()->status.setText("שמירת לימוד נכשלה: "+e.getMessage()));
             }
         }
-    }
+    }    @Override protected void onDestroy(){try{unregisterReceiver(yeshUsbReceiver);}catch(Exception ignored){}super.onDestroy();}
 }
