@@ -11,7 +11,7 @@ public class YeshInvoiceContractPatchActivity extends GranularPermissionsActiveP
         "(function(){if(window.__mfixYeshLauncher)return;window.__mfixYeshLauncher=true;" +
         "function add(){if(document.getElementById('mfixYeshOpenButton'))return;var host=document.querySelector('#topRight')||document.querySelector('.topbar-right')||document.querySelector('.topbar');" +
         "if(!host)return;var b=document.createElement('button');b.id='mfixYeshOpenButton';b.type='button';b.className='badge green';b.style.cssText='border:none;cursor:pointer;font-weight:800';b.textContent='🧾 יש חשבונית';" +
-        "b.onclick=function(){try{window.AndroidYeshLauncher.open();}catch(e){alert('פתיחת יש חשבונית נכשלה: '+e.message);}};host.appendChild(b);}" +
+        "b.onclick=function(){try{var payload={cart:Array.isArray(window.STATE&&STATE.cart)?STATE.cart:[],customerName:window.STATE&&STATE.docCustomerName||'',customerPhone:window.STATE&&STATE.docCustomerPhone||''};window.AndroidYeshLauncher.openWithSale(JSON.stringify(payload));}catch(e){try{window.AndroidYeshLauncher.open();}catch(_){alert('פתיחת יש חשבונית נכשלה: '+e.message);}}};host.appendChild(b);}" +
         "add();setInterval(add,1000);})();";
 
     @Override protected void onCreate(Bundle savedInstanceState){
@@ -26,9 +26,13 @@ public class YeshInvoiceContractPatchActivity extends GranularPermissionsActiveP
     }
 
     private final class LauncherBridge {
-        @JavascriptInterface public void open(){
-            runOnUiThread(()->startActivity(new android.content.Intent(
-                YeshInvoiceContractPatchActivity.this, YeshInvoiceWebActivity.class)));
+        @JavascriptInterface public void open(){ openWithSale("{}"); }
+        @JavascriptInterface public void openWithSale(String payload){
+            runOnUiThread(()->{
+                android.content.Intent i=new android.content.Intent(YeshInvoiceContractPatchActivity.this, YeshInvoiceWebActivity.class);
+                i.putExtra("mfix_sale_payload", payload==null?"{}":payload);
+                startActivity(i);
+            });
         }
     }
 }
