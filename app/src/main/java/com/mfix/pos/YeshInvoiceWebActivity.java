@@ -18,6 +18,8 @@ import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 public class YeshInvoiceWebActivity extends Activity {
     private WebView web;
@@ -25,10 +27,13 @@ public class YeshInvoiceWebActivity extends Activity {
     private EditText price;
     private TextView status;
     private final Handler handler = new Handler();
+    private String salePayload = "{}";
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        salePayload = getIntent().getStringExtra("mfix_sale_payload");
+        if (salePayload == null) salePayload = "{}";
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
@@ -94,6 +99,37 @@ public class YeshInvoiceWebActivity extends Activity {
         setContentView(root);
 
         web.loadUrl("https://user.yeshinvoice.co.il/");
+        handler.postDelayed(this::autoPrepareSale, 2200);
+    }
+
+    private void autoPrepareSale(){
+        try{
+            JSONObject payload=new JSONObject(salePayload);
+            JSONArray cart=payload.optJSONArray("cart");
+            if(cart==null||cart.length()==0){status.setText("יש חשבונית פתוח — אין כרגע מוצרים בעגלה");return;}
+            JSONObject first=cart.optJSONObject(0);
+            if(first==null)return;
+            String name=first.optString("name","");
+            double unit=first.optDouble("unitPrice",0);
+            double qty=first.optDouble("qty",1);
+            product.setText(name);
+            price.setText(String.valueOf(unit));
+            status.setText("העסקה הועברה מ-MFIX: "+name+" × "+qty);
+            injectCartLines(cart);
+        }catch(Exception e){status.setText("העברת העסקה: "+e.getMessage());}
+    }
+
+    private void injectCartLines(JSONArray cart){
+        String json=cart.toString();
+        String script="(function(){var lines="+js(json)+";try{lines=JSON.parse(lines)}catch(e){return;}"+
+            "var els=[].slice.call(document.querySelectorAll('input,textarea'));"+
+            "function score(e,keys){var s=((e.placeholder||'')+' '+(e.name||'')+' '+(e.id||'')+' '+(e.getAttribute('aria-label')||'')).toLowerCase();return keys.some(function(k){return s.indexOf(k)>=0})}"+
+            "var n=els.find(function(e){return score(e,['מוצר','פריט','שם','item','product','description'])});"+
+            "var a=els.find(function(e){return score(e,['מחיר','סכום','price','amount'])});"+
+            "function set(e,v){if(!e)return;var p=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value');if(p&&p.set)p.set.call(e,String(v));else e.value=String(v);e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));}"+
+            "if(n&&lines[0])set(n,lines[0].name||'');if(a&&lines[0])set(a,lines[0].unitPrice||0);"+
+            "AndroidYesh.result('נשלח ליש חשבונית: '+lines.length+' שורות; שדות בסיס '+(n?'✓':'✗')+'/'+(a?'✓':'✗'));})();";
+        web.evaluateJavascript(script,null);
     }
 
     private void injectTestLine(){
