@@ -1,5 +1,6 @@
 package com.mfix.pos;
 
+import android.app.AlertDialog;
 import android.os.Bundle;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
@@ -28,11 +29,16 @@ public class YeshInvoiceContractPatchActivity extends GranularPermissionsActiveP
     private final class LauncherBridge {
         @JavascriptInterface public void open(){ openWithSale("{}"); }
         @JavascriptInterface public void openWithSale(String payload){
-            runOnUiThread(()->{
-                android.content.Intent i=new android.content.Intent(YeshInvoiceContractPatchActivity.this, YeshInvoiceWebActivity.class);
-                i.putExtra("mfix_sale_payload", payload==null?"{}":payload);
-                startActivity(i);
-            });
+            final String safePayload = payload==null?"{}":payload;
+            runOnUiThread(()->new AlertDialog.Builder(YeshInvoiceContractPatchActivity.this)
+                .setTitle("פתיחת יש חשבונית")
+                .setMessage("העגלה הנוכחית תועבר ליש חשבונית לצורך הפקת המסמך. האם לפתוח עכשיו?")
+                .setNegativeButton("ביטול", null)
+                .setPositiveButton("פתח", (dialog, which)->{
+                    android.content.Intent i=new android.content.Intent(YeshInvoiceContractPatchActivity.this, YeshInvoiceWebActivity.class);
+                    i.putExtra("mfix_sale_payload", safePayload);
+                    startActivity(i);
+                }).show());
         }
     }
 }
