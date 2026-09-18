@@ -43,7 +43,8 @@
   }
   function selectedPrinter(ps){
     var id=defaultPrinterId();
-    return ps.find(function(x){return id && (x.id===id || x.name===id);}) || ps[0] || null;
+    if(!id) return null;
+    return ps.find(function(x){return String(x.id||'')===id || String(x.name||'')===id;}) || null;
   }
   function open(){
     var a=api();
@@ -65,7 +66,7 @@
         +'</div></div>';
     }).join('') : '<div style="padding:18px;text-align:center;color:#6b7686">לא נמצאה כרגע מדפסת USB מתאימה.</div>';
     var selected=selectedPrinter(printers);
-    var summary=selected ? '<div style="padding:9px 11px;border-radius:9px;background:#f1f5ff;margin-bottom:10px;font-size:13px">מדפסת פעילה: <b>'+esc(selected.name||selected.id)+'</b></div>' : '';
+    var summary=selected ? '<div style="padding:9px 11px;border-radius:9px;background:#f1f5ff;margin-bottom:10px;font-size:13px">מדפסת פעילה: <b>'+esc(selected.name||selected.id)+'</b></div>' : '<div style="padding:9px 11px;border-radius:9px;background:#fff7ed;margin-bottom:10px;font-size:13px">לא הוגדרה מדפסת ברירת מחדל. בחר מדפסת לפני בדיקה או הדפסה אוטומטית.</div>';
     var html='<div style="position:fixed;inset:0;background:rgba(11,18,32,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:18px" id="mfixPrinterOverlay">'
       +'<div style="background:#fff;border-radius:16px;width:min(680px,96vw);max-height:90vh;overflow:auto;box-shadow:0 12px 30px rgba(15,23,42,.16);padding:18px">'
       +'<div style="display:flex;justify-content:space-between;align-items:center"><h3 style="margin:0">ניהול מדפסות</h3><div style="display:flex;align-items:center;gap:8px"><button id="mfixPrinterRefresh" class="btn btn-ghost" style="padding:5px 9px">↻ רענן</button><button id="mfixPrinterClose" style="border:0;background:none;font-size:22px">×</button></div></div>'
@@ -80,16 +81,22 @@
     document.querySelectorAll('[data-mfix-action]').forEach(function(btn){btn.onclick=function(){
       var id=btn.getAttribute('data-id'), action=btn.getAttribute('data-mfix-action');
       try{
+        var p=list().find(function(x){return String(x.id)===String(id);});
+        if(!p){ alert('המדפסת כבר אינה מחוברת'); return; }
         if(action==='select'){
-          var p=list().find(function(x){return String(x.id)===String(id);});
-          if(!p){ alert('המדפסת כבר אינה מחוברת'); return; }
           setDefaultPrinter(p);
           alert('המדפסת נבחרה כברירת מחדל: '+(p.name||p.id));
           document.getElementById('mfixPrinterOverlay').remove();
           open();
-        } else if(action==='test'){ a.printEscPosToDevice(id,testData()); }
-        else if(action==='drawer'){ a.openCashDrawer(id); }
-        else if(action==='diag'){ var d=JSON.parse(a.getUsbPrinterDiagnostics(id)||'{}'); alert(JSON.stringify(d,null,2)); }
+        } else if(action==='test'){
+          if(!p.authorized){ alert('למדפסת זו אין כרגע הרשאת USB. אשר את הרשאת ה-USB במכשיר ונסה שוב.'); return; }
+          if(defaultPrinterId()!==String(p.id) && defaultPrinterId()!==String(p.name||'')){ alert('בחר תחילה את המדפסת כברירת מחדל.'); return; }
+          a.printEscPosToDevice(id,testData());
+        } else if(action==='drawer'){
+          if(!p.authorized){ alert('למדפסת זו אין כרגע הרשאת USB.'); return; }
+          if(defaultPrinterId()!==String(p.id) && defaultPrinterId()!==String(p.name||'')){ alert('בחר תחילה את המדפסת כברירת מחדל.'); return; }
+          a.openCashDrawer(id);
+        } else if(action==='diag'){ var d=JSON.parse(a.getUsbPrinterDiagnostics(id)||'{}'); alert(JSON.stringify(d,null,2)); }
       }catch(e){ alert('פעולת המדפסת נכשלה: '+e.message); }
     };});
   }
@@ -112,7 +119,7 @@
         var bridge=api();
         if(!bridge || typeof bridge.openCashDrawer!=='function') return result;
         var printers=list(), p=selectedPrinter(printers);
-        if(p && p.id) bridge.openCashDrawer(p.id);
+        if(p && p.authorized && p.id) bridge.openCashDrawer(p.id);
       }catch(e){ console.error('[MFIX CASH DRAWER]',e); }
       return result;
     };
