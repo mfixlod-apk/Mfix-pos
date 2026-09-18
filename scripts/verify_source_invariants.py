@@ -9,6 +9,7 @@ MANIFEST = ROOT / "app/src/main/AndroidManifest.xml"
 PATCHED = ROOT / "app/src/main/java/com/mfix/pos/PatchedMainActivity.java"
 RUNTIME = ROOT / "app/src/main/java/com/mfix/pos/RuntimeSafetyPatchActivity.java"
 YESH = ROOT / "app/src/main/java/com/mfix/pos/YeshInvoicePatchActivity.java"
+YESH_CONTRACT = ROOT / "app/src/main/java/com/mfix/pos/YeshInvoiceContractPatchActivity.java"
 MAIN = ROOT / "app/src/main/java/com/mfix/pos/MainActivity.java"
 INVENTORY = ROOT / "app/src/main/java/com/mfix/pos/InventoryImportPatchActivity.java"
 INVENTORY_MGMT = ROOT / "app/src/main/java/com/mfix/pos/InventoryManagementPatchActivity.java"
@@ -27,7 +28,7 @@ def require(text: str, needle: str, label: str, errors: list[str]) -> None:
 
 def main() -> int:
     errors: list[str] = []
-    for path in (INDEX, MANIFEST, PATCHED, RUNTIME, YESH, MAIN, INVENTORY, INVENTORY_MGMT, RELEASE_SCOPE, SETTINGS_DIAGNOSTICS, STOCK_HISTORY, KEYBOARD_SHORTCUT, BACKUP_USERS, GRANULAR_LAUNCHER):
+    for path in (INDEX, MANIFEST, PATCHED, RUNTIME, YESH, YESH_CONTRACT, MAIN, INVENTORY, INVENTORY_MGMT, RELEASE_SCOPE, SETTINGS_DIAGNOSTICS, STOCK_HISTORY, KEYBOARD_SHORTCUT, BACKUP_USERS, GRANULAR_LAUNCHER):
         if not path.is_file():
             errors.append(f"Required source file missing: {path.relative_to(ROOT)}")
     if errors:
@@ -39,6 +40,7 @@ def main() -> int:
     patched = PATCHED.read_text(encoding="utf-8")
     runtime = RUNTIME.read_text(encoding="utf-8")
     yesh = YESH.read_text(encoding="utf-8")
+    yesh_contract = YESH_CONTRACT.read_text(encoding="utf-8")
     bridge = MAIN.read_text(encoding="utf-8")
     inventory = INVENTORY.read_text(encoding="utf-8")
     inventory_mgmt = INVENTORY_MGMT.read_text(encoding="utf-8")
@@ -115,6 +117,10 @@ def main() -> int:
         require(granular_launcher, "YeshInvoicePatchActivity.install(webView)", "active launcher installs Yesh Invoice layer", errors)
         require(granular_launcher, "BackupRestoreLiveInstaller.install(webView)", "active launcher installs backup/restore", errors)
         require(granular_launcher, "LowStockDashboardPatchActivity.install(webView)", "active launcher installs low-stock dashboard", errors)
+    if 'android:name=".YeshInvoiceContractPatchActivity"' in manifest:
+        require(yesh_contract, "extends GranularPermissionsActivePatchActivity", "Yesh Invoice launcher preserves the complete MFIX runtime chain", errors)
+        require(yesh_contract, "AndroidYeshLauncher", "Yesh Invoice launcher bridge remains exposed", errors)
+        require(yesh_contract, "openWithSale", "Yesh Invoice launcher accepts the current sale payload", errors)
     if 'android:name=".PrinterDiagnosticsPatchActivity"' in manifest:
         require(inventory_mgmt, "extends ReportsDashboardPatchActivity", "printer diagnostics chain reaches inventory management", errors)
         require(keyboard_shortcut, "extends CheckoutControlsPatchActivity", "keyboard shortcut remains in the printer diagnostics runtime chain", errors)
