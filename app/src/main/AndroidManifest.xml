@@ -9,6 +9,10 @@
         android:theme="@style/AppTheme"
         android:usesCleartextTraffic="true">
         <activity
+            android:name=".YeshInvoiceWebActivity"
+            android:screenOrientation="unspecified"
+            android:exported="false" />
+        <activity
             android:name=".YeshInvoiceContractPatchActivity"
             android:screenOrientation="unspecified"
             android:exported="true">
