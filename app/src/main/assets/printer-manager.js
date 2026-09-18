@@ -29,8 +29,6 @@
     localStorage.setItem('mfix_default_printer_v1', id);
     var s=printerSettings(); s.device=id; s.enabled=true;
     localStorage.setItem('mfix_printer_settings_v1', JSON.stringify(s));
-    // Keep MFIX's application settings in sync with the printer-manager selection.
-    // This matters because direct Android raster printing reads STATE.settings.printers/defaultPrinterId.
     try {
       if(window.STATE && window.STATE.settings){
         window.STATE.settings.defaultPrinterId=id;
@@ -70,13 +68,14 @@
     var summary=selected ? '<div style="padding:9px 11px;border-radius:9px;background:#f1f5ff;margin-bottom:10px;font-size:13px">מדפסת פעילה: <b>'+esc(selected.name||selected.id)+'</b></div>' : '';
     var html='<div style="position:fixed;inset:0;background:rgba(11,18,32,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:18px" id="mfixPrinterOverlay">'
       +'<div style="background:#fff;border-radius:16px;width:min(680px,96vw);max-height:90vh;overflow:auto;box-shadow:0 12px 30px rgba(15,23,42,.16);padding:18px">'
-      +'<div style="display:flex;justify-content:space-between;align-items:center"><h3 style="margin:0">ניהול מדפסות</h3><button id="mfixPrinterClose" style="border:0;background:none;font-size:22px">×</button></div>'
+      +'<div style="display:flex;justify-content:space-between;align-items:center"><h3 style="margin:0">ניהול מדפסות</h3><div style="display:flex;align-items:center;gap:8px"><button id="mfixPrinterRefresh" class="btn btn-ghost" style="padding:5px 9px">↻ רענן</button><button id="mfixPrinterClose" style="border:0;background:none;font-size:22px">×</button></div></div>'
       +'<div style="margin:10px 0 14px;color:#6b7686;font-size:13px">מדפסות USB שהתגלו על ידי MFIX. בחר מדפסת ברירת מחדל לפני הדפסת קבלות אוטומטית.</div>'
       +'<div id="mfixPrinterSummary">'+summary+'</div>'
       +'<div id="mfixPrinterRows">'+rows+'</div>'
       +'</div></div>';
     document.body.insertAdjacentHTML('beforeend',html);
     document.getElementById('mfixPrinterClose').onclick=function(){document.getElementById('mfixPrinterOverlay').remove();};
+    document.getElementById('mfixPrinterRefresh').onclick=function(){document.getElementById('mfixPrinterOverlay').remove();open();};
     document.getElementById('mfixPrinterOverlay').onclick=function(e){if(e.target===this)this.remove();};
     document.querySelectorAll('[data-mfix-action]').forEach(function(btn){btn.onclick=function(){
       var id=btn.getAttribute('data-id'), action=btn.getAttribute('data-mfix-action');
@@ -95,9 +94,6 @@
     };});
   }
 
-  // Checkout integration: after a completed cash sale, open the drawer only when
-  // the explicit drawer setting is enabled. This calls only the existing native
-  // USB bridge and does not claim support for Bluetooth/Wi-Fi drawers.
   function installCheckoutDrawerHook(){
     if(typeof window.finalizeSale!=='function' || window.__mfixCheckoutDrawerHooked) return;
     window.__mfixCheckoutDrawerHooked=true;
