@@ -2,6 +2,7 @@ package com.mfix.pos;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
@@ -26,10 +27,17 @@ public class YeshInvoiceWebActivity extends Activity {
     private EditText price;
     private TextView status;
     private String salePayload = "{}";
+    private boolean learning = false;
+    private final SharedPreferences prefs;
+
+    public YeshInvoiceWebActivity() {
+        prefs = null;
+    }
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        final SharedPreferences sp = getSharedPreferences("mfix_yesh_learning", MODE_PRIVATE);
         salePayload = getIntent().getStringExtra("mfix_sale_payload");
         if (salePayload == null) salePayload = "{}";
 
@@ -39,12 +47,38 @@ public class YeshInvoiceWebActivity extends Activity {
 
         LinearLayout bar = new LinearLayout(this);
         bar.setGravity(Gravity.CENTER_VERTICAL);
-        bar.setPadding(12, 8, 12, 8);
+        bar.setPadding(8, 6, 8, 6);
         bar.setBackgroundColor(Color.WHITE);
 
         Button back = new Button(this);
         back.setText("← MFIX");
         back.setOnClickListener(v -> finish());
+
+        Button learn = new Button(this);
+        learn.setText("🎓 התחל לימוד");
+        learn.setOnClickListener(v -> {
+            learning = !learning;
+            if (learning) {
+                learn.setText("⏹ עצור ושמור");
+                status.setText("מצב לימוד פעיל — בצע עכשיו את הפעולות ביש חשבונית");
+                web.evaluateJavascript("window.MFIX_LEARNING_START&&window.MFIX_LEARNING_START();", null);
+            } else {
+                learn.setText("🎓 התחל לימוד");
+                web.evaluateJavascript("window.MFIX_LEARNING_STOP&&window.MFIX_LEARNING_STOP();", null);
+            }
+        });
+
+        Button replay = new Button(this);
+        replay.setText("▶ הפעל לימוד");
+        replay.setOnClickListener(v -> {
+            String flow = sp.getString("flow", "");
+            if (flow.isEmpty()) {
+                status.setText("אין עדיין לימוד שמור");
+                return;
+            }
+            status.setText("מפעיל את רצף הלימוד…");
+            web.evaluateJavascript("window.MFIX_REPLAY&&window.MFIX_REPLAY(" + js(flow) + ");", null);
+        });
 
         product = new EditText(this);
         product.setHint("מוצר לבדיקה");
@@ -61,14 +95,16 @@ public class YeshInvoiceWebActivity extends Activity {
 
         LinearLayout.LayoutParams field = new LinearLayout.LayoutParams(0, -2, 1f);
         bar.addView(back);
+        bar.addView(learn);
+        bar.addView(replay);
         bar.addView(product, field);
-        bar.addView(price, new LinearLayout.LayoutParams(110, -2));
+        bar.addView(price, new LinearLayout.LayoutParams(100, -2));
         bar.addView(test);
 
         status = new TextView(this);
         status.setText("יש חשבונית: פותח/טוען…");
         status.setTextSize(12);
-        status.setPadding(12, 5, 12, 5);
+        status.setPadding(10, 4, 10, 4);
 
         web = new WebView(this);
         WebSettings s = web.getSettings();
@@ -85,7 +121,8 @@ public class YeshInvoiceWebActivity extends Activity {
         web.setWebViewClient(new WebViewClient(){
             @Override public void onPageFinished(WebView view, String url){
                 CookieManager.getInstance().flush();
-                status.setText("יש חשבונית מחובר/פתוח: " + url);
+                installLearningEngine();
+                status.setText("יש חשבונית פתוח: " + url);
                 if (salePayload != null && !salePayload.equals("{}")) {
                     view.postDelayed(YeshInvoiceWebActivity.this::autoPrepareSale, 700);
                 }
@@ -100,6 +137,23 @@ public class YeshInvoiceWebActivity extends Activity {
         setContentView(root);
 
         web.loadUrl("https://user.yeshinvoice.co.il/");
+    }
+
+    private void installLearningEngine() {
+        String script =
+            "(function(){if(window.__MFIX_LEARNING_INSTALLED)return;window.__MFIX_LEARNING_INSTALLED=true;" +
+            "function txt(e){return ((e.innerText||e.textContent||'').trim()).replace(/\\s+/g,' ').slice(0,120);}" +
+            "function meta(e){var r=e.getBoundingClientRect();return {tag:e.tagName||'',id:e.id||'',name:e.getAttribute('name')||'',type:e.getAttribute('type')||'',placeholder:e.getAttribute('placeholder')||'',aria:e.getAttribute('aria-label')||'',text:txt(e),x:Math.round(r.left),y:Math.round(r.top),w:Math.round(r.width),h:Math.round(r.height)};}" +
+            "function selector(e){if(e.id)return '#'+CSS.escape(e.id);if(e.name)return e.tagName.toLowerCase()+'[name="'+String(e.name).replace(/"/g,'\\\\"')+'"]';return null;}" +
+            "function useful(e){if(!e||e===document.body||e===document.documentElement)return false;var t=(e.tagName||'').toLowerCase();return ['button','a','input','textarea','select','option','label'].indexOf(t)>=0||e.getAttribute('role');}" +
+            "function target(e){while(e&&e!==document.body&&!useful(e))e=e.parentElement;return e||null;}" +
+            "window.__MFIX_FLOW=[];window.__MFIX_LEARNING=false;" +
+            "window.MFIX_LEARNING_START=function(){window.__MFIX_FLOW=[];window.__MFIX_LEARNING=true;AndroidYesh.result('לימוד התחיל — בצע את התהליך פעם אחת');};" +
+            "window.MFIX_LEARNING_STOP=function(){window.__MFIX_LEARNING=false;AndroidYesh.saveLearning(JSON.stringify(window.__MFIX_FLOW));};" +
+            "document.addEventListener('click',function(ev){if(!window.__MFIX_LEARNING)return;var e=target(ev.target);if(!e)return;var m=meta(e);window.__MFIX_FLOW.push({op:'click',meta:m,selector:selector(e)});AndroidYesh.result('נלכדה לחיצה: '+(m.text||m.aria||m.placeholder||m.id||m.tag));},true);" +
+            "document.addEventListener('change',function(ev){if(!window.__MFIX_LEARNING)return;var e=target(ev.target);if(!e)return;var m=meta(e);var v=(e.value!==undefined?String(e.value):'');var dynamic=(e.tagName==='INPUT'||e.tagName==='TEXTAREA')&&((m.placeholder+' '+m.name+' '+m.id+' '+m.aria).toLowerCase().match(/מוצר|פריט|שם|מחיר|סכום|כמות|quantity|price|amount|product|item/));window.__MFIX_FLOW.push({op:'change',meta:m,selector:selector(e),value:dynamic?'__MFIX_DYNAMIC__':v});AndroidYesh.result('נלכד שינוי: '+(m.placeholder||m.name||m.id||m.tag));},true);" +
+            "})();";
+        web.evaluateJavascript(script, null);
     }
 
     private void autoPrepareSale(){
@@ -150,7 +204,8 @@ public class YeshInvoiceWebActivity extends Activity {
     }
 
     private String js(String s){
-        return "'" + String.valueOf(s).replace("\\","\\\\").replace("'","\\'").replace("\n"," ") + "'";
+        return "'" + String.valueOf(s).replace("\","\\").replace("'","\'").replace("
+"," ") + "'";
     }
 
     private class Bridge {
@@ -159,6 +214,19 @@ public class YeshInvoiceWebActivity extends Activity {
                 status.setText(text);
                 Toast.makeText(YeshInvoiceWebActivity.this, text, Toast.LENGTH_SHORT).show();
             });
+        }
+
+        @JavascriptInterface public void saveLearning(String flow){
+            try{
+                new JSONArray(flow);
+                getSharedPreferences("mfix_yesh_learning", MODE_PRIVATE).edit().putString("flow", flow).apply();
+                runOnUiThread(()->{
+                    status.setText("הלימוד נשמר. בפעם הבאה אפשר להפעיל אותו.");
+                    Toast.makeText(YeshInvoiceWebActivity.this,"הלימוד נשמר",Toast.LENGTH_SHORT).show();
+                });
+            }catch(Exception e){
+                runOnUiThread(()->status.setText("שמירת לימוד נכשלה: "+e.getMessage()));
+            }
         }
     }
 }
