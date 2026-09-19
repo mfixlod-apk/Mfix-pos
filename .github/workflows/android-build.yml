@@ -14,6 +14,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Inject inventory history export enhancement
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          html_path=Path('app/src/main/assets/index.html')
+          html=html_path.read_text(encoding='utf-8')
+          marker='<script src="inventory-history-export.js"></script>'
+          if marker not in html:
+              html=html.replace('</body>', marker+'\n</body>', 1)
+          html_path.write_text(html,encoding='utf-8')
+          PY
+
       - name: Set up Java 17
         uses: actions/setup-java@v5
         with:
@@ -40,6 +52,7 @@ jobs:
         run: |
           test -s app/src/main/assets/index.html
           test -s app/src/main/assets/printer-manager.js
+          test -s app/src/main/assets/inventory-history-export.js
           python3 - <<'PY'
           from pathlib import Path
           import re
@@ -51,6 +64,7 @@ jobs:
           PY
           node --check /tmp/mfix.js
           node --check app/src/main/assets/printer-manager.js
+          node --check app/src/main/assets/inventory-history-export.js
           python3 scripts/verify_release_invariants.py
 
       - name: Build Release APK
@@ -66,16 +80,21 @@ jobs:
           "$APKSIGNER" verify --verbose "$APK"
           unzip -p "$APK" assets/index.html > /tmp/index.html
           test -s /tmp/index.html
+          unzip -p "$APK" assets/inventory-history-export.js > /tmp/inventory-history-export.js
+          test -s /tmp/inventory-history-export.js
           python3 - <<'PY'
           from pathlib import Path
           import re
           html=Path('/tmp/index.html').read_text(encoding='utf-8')
+          if 'inventory-history-export.js' not in html:
+              raise SystemExit('Inventory history enhancement was not packaged')
           scripts=re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>', html, flags=re.I|re.S)
           if not scripts:
               raise SystemExit('Packaged index.html has no inline script')
           Path('/tmp/packaged-mfix.js').write_text(max(scripts,key=len),encoding='utf-8')
           PY
           node --check /tmp/packaged-mfix.js
+          node --check /tmp/inventory-history-export.js
           unzip -p "$APK" assets/content.js > /tmp/content.js
           test -s /tmp/content.js
 
