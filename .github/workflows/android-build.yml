@@ -14,15 +14,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Inject inventory history export enhancement
+      - name: Inject inventory enhancements
         run: |
           python3 - <<'PY'
           from pathlib import Path
           html_path=Path('app/src/main/assets/index.html')
           html=html_path.read_text(encoding='utf-8')
-          marker='<script src="inventory-history-export.js"></script>'
-          if marker not in html:
-              html=html.replace('</body>', marker+'\n</body>', 1)
+          for name in ('inventory-history-export.js','inventory-low-stock-filter.js'):
+              marker=f'<script src="{name}"></script>'
+              if marker not in html:
+                  html=html.replace('</body>', marker+'\n</body>', 1)
           html_path.write_text(html,encoding='utf-8')
           PY
 
@@ -53,6 +54,7 @@ jobs:
           test -s app/src/main/assets/index.html
           test -s app/src/main/assets/printer-manager.js
           test -s app/src/main/assets/inventory-history-export.js
+          test -s app/src/main/assets/inventory-low-stock-filter.js
           python3 - <<'PY'
           from pathlib import Path
           import re
@@ -65,6 +67,7 @@ jobs:
           node --check /tmp/mfix.js
           node --check app/src/main/assets/printer-manager.js
           node --check app/src/main/assets/inventory-history-export.js
+          node --check app/src/main/assets/inventory-low-stock-filter.js
           python3 scripts/verify_release_invariants.py
 
       - name: Build Release APK
@@ -80,14 +83,17 @@ jobs:
           "$APKSIGNER" verify --verbose "$APK"
           unzip -p "$APK" assets/index.html > /tmp/index.html
           test -s /tmp/index.html
-          unzip -p "$APK" assets/inventory-history-export.js > /tmp/inventory-history-export.js
-          test -s /tmp/inventory-history-export.js
+          for name in inventory-history-export.js inventory-low-stock-filter.js; do
+            unzip -p "$APK" "assets/$name" > "/tmp/$name"
+            test -s "/tmp/$name"
+          done
           python3 - <<'PY'
           from pathlib import Path
           import re
           html=Path('/tmp/index.html').read_text(encoding='utf-8')
-          if 'inventory-history-export.js' not in html:
-              raise SystemExit('Inventory history enhancement was not packaged')
+          for name in ('inventory-history-export.js','inventory-low-stock-filter.js'):
+              if name not in html:
+                  raise SystemExit(f'{name} was not packaged')
           scripts=re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>', html, flags=re.I|re.S)
           if not scripts:
               raise SystemExit('Packaged index.html has no inline script')
@@ -95,6 +101,7 @@ jobs:
           PY
           node --check /tmp/packaged-mfix.js
           node --check /tmp/inventory-history-export.js
+          node --check /tmp/inventory-low-stock-filter.js
           unzip -p "$APK" assets/content.js > /tmp/content.js
           test -s /tmp/content.js
 
