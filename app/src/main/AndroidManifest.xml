@@ -9,17 +9,22 @@
         android:theme="@style/AppTheme"
         android:usesCleartextTraffic="true">
         <activity
-            android:name=".YeshInvoiceWebActivity"
-            android:screenOrientation="unspecified"
-            android:exported="false" />
-        <activity
-            android:name=".YeshInvoiceContractPatchActivity"
+            android:name=".QuickPosActivity"
             android:screenOrientation="unspecified"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+        </activity>
+        <activity
+            android:name=".YeshInvoiceWebActivity"
+            android:screenOrientation="unspecified"
+            android:exported="false" />
+        <activity
+            android:name=".YeshInvoiceContractPatchActivity"
+            android:screenOrientation="unspecified"
+            android:exported="false">
             <intent-filter>
                 <action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" />
             </intent-filter>
