@@ -20,7 +20,7 @@ jobs:
           from pathlib import Path
           html_path=Path('app/src/main/assets/index.html')
           html=html_path.read_text(encoding='utf-8')
-          for name in ('inventory-history-export.js','inventory-low-stock-filter.js','inventory-serial-imei-export.js','settings-printer-summary.js','printer-auto-print.js'):
+          for name in ('inventory-history-export.js','inventory-low-stock-filter.js','inventory-serial-imei-export.js','settings-printer-summary.js','printer-auto-print.js','printer-diagnostics.js'):
               marker=f'<script src="{name}"></script>'
               if marker not in html:
                   html=html.replace('</body>', marker+'\n</body>', 1)
@@ -52,7 +52,7 @@ jobs:
       - name: Validate embedded app
         run: |
           test -s app/src/main/assets/index.html
-          for name in printer-manager.js inventory-history-export.js inventory-low-stock-filter.js inventory-serial-imei-export.js settings-printer-summary.js printer-auto-print.js; do
+          for name in printer-manager.js inventory-history-export.js inventory-low-stock-filter.js inventory-serial-imei-export.js settings-printer-summary.js printer-auto-print.js printer-diagnostics.js; do
             test -s "app/src/main/assets/$name"
             node --check "app/src/main/assets/$name"
           done
@@ -61,6 +61,7 @@ jobs:
           grep -Fq 'inventory-serial-imei-export.js' app/src/main/assets/index.html
           grep -Fq 'settings-printer-summary.js' app/src/main/assets/index.html
           grep -Fq 'printer-auto-print.js' app/src/main/assets/index.html
+          grep -Fq 'printer-diagnostics.js' app/src/main/assets/index.html
           python3 scripts/verify_release_invariants.py
 
       - name: Build Release APK
@@ -76,7 +77,7 @@ jobs:
           "$APKSIGNER" verify --verbose "$APK"
           unzip -p "$APK" assets/index.html > /tmp/index.html
           test -s /tmp/index.html
-          for name in printer-manager.js inventory-history-export.js inventory-low-stock-filter.js inventory-serial-imei-export.js settings-printer-summary.js printer-auto-print.js; do
+          for name in printer-manager.js inventory-history-export.js inventory-low-stock-filter.js inventory-serial-imei-export.js settings-printer-summary.js printer-auto-print.js printer-diagnostics.js; do
             unzip -p "$APK" "assets/$name" > "/tmp/$name"
             test -s "/tmp/$name"
             node --check "/tmp/$name"
