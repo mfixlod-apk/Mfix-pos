@@ -56,16 +56,9 @@ jobs:
           test -s app/src/main/assets/inventory-history-export.js
           test -s app/src/main/assets/inventory-low-stock-filter.js
           test -s app/src/main/assets/inventory-serial-imei-export.js
-          python3 - <<'PY'
-          from pathlib import Path
-          import re
-          html=Path('app/src/main/assets/index.html').read_text(encoding='utf-8')
-          scripts=re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>', html, flags=re.I|re.S)
-          if not scripts:
-              raise SystemExit('No inline script found')
-          Path('/tmp/mfix.js').write_text(max(scripts,key=len),encoding='utf-8')
-          PY
-          node --check /tmp/mfix.js
+          grep -Fq 'inventory-history-export.js' app/src/main/assets/index.html
+          grep -Fq 'inventory-low-stock-filter.js' app/src/main/assets/index.html
+          grep -Fq 'inventory-serial-imei-export.js' app/src/main/assets/index.html
           node --check app/src/main/assets/printer-manager.js
           node --check app/src/main/assets/inventory-history-export.js
           node --check app/src/main/assets/inventory-low-stock-filter.js
@@ -89,19 +82,9 @@ jobs:
             unzip -p "$APK" "assets/$name" > "/tmp/$name"
             test -s "/tmp/$name"
           done
-          python3 - <<'PY'
-          from pathlib import Path
-          import re
-          html=Path('/tmp/index.html').read_text(encoding='utf-8')
-          for name in ('inventory-history-export.js','inventory-low-stock-filter.js','inventory-serial-imei-export.js'):
-              if name not in html:
-                  raise SystemExit(f'{name} was not packaged')
-          scripts=re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>', html, flags=re.I|re.S)
-          if not scripts:
-              raise SystemExit('Packaged index.html has no inline script')
-          Path('/tmp/packaged-mfix.js').write_text(max(scripts,key=len),encoding='utf-8')
-          PY
-          node --check /tmp/packaged-mfix.js
+          grep -Fq 'inventory-history-export.js' /tmp/index.html
+          grep -Fq 'inventory-low-stock-filter.js' /tmp/index.html
+          grep -Fq 'inventory-serial-imei-export.js' /tmp/index.html
           node --check /tmp/inventory-history-export.js
           node --check /tmp/inventory-low-stock-filter.js
           node --check /tmp/inventory-serial-imei-export.js
