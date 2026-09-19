@@ -63,9 +63,22 @@ jobs:
           APKSIGNER="${ANDROID_HOME:-$ANDROID_SDK_ROOT}/build-tools/35.0.0/apksigner"
           test -x "$APKSIGNER"
           "$APKSIGNER" verify --verbose "$APK"
+          unzip -p "$APK" assets/index.html > /tmp/index.html
+          test -s /tmp/index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          html=Path('/tmp/index.html').read_text(encoding='utf-8')
+          scripts=re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>', html, flags=re.I|re.S)
+          if not scripts:
+              raise SystemExit('Packaged index.html has no inline script')
+          Path('/tmp/packaged-mfix.js').write_text(max(scripts,key=len),encoding='utf-8')
+          PY
+          node --check /tmp/packaged-mfix.js
+          # content.js is a legacy Chrome-extension asset kept for compatibility;
+          # Android MainActivity loads index.html directly, so it is not the Android runtime.
           unzip -p "$APK" assets/content.js > /tmp/content.js
           test -s /tmp/content.js
-          node --check /tmp/content.js
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
