@@ -14,13 +14,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Inject inventory enhancements
+      - name: Inject MFIX enhancements
         run: |
           python3 - <<'PY'
           from pathlib import Path
           html_path=Path('app/src/main/assets/index.html')
           html=html_path.read_text(encoding='utf-8')
-          for name in ('inventory-history-export.js','inventory-low-stock-filter.js','inventory-serial-imei-export.js'):
+          for name in ('inventory-history-export.js','inventory-low-stock-filter.js','inventory-serial-imei-export.js','settings-printer-summary.js'):
               marker=f'<script src="{name}"></script>'
               if marker not in html:
                   html=html.replace('</body>', marker+'\n</body>', 1)
@@ -52,17 +52,14 @@ jobs:
       - name: Validate embedded app
         run: |
           test -s app/src/main/assets/index.html
-          test -s app/src/main/assets/printer-manager.js
-          test -s app/src/main/assets/inventory-history-export.js
-          test -s app/src/main/assets/inventory-low-stock-filter.js
-          test -s app/src/main/assets/inventory-serial-imei-export.js
+          for name in printer-manager.js inventory-history-export.js inventory-low-stock-filter.js inventory-serial-imei-export.js settings-printer-summary.js; do
+            test -s "app/src/main/assets/$name"
+            node --check "app/src/main/assets/$name"
+          done
           grep -Fq 'inventory-history-export.js' app/src/main/assets/index.html
           grep -Fq 'inventory-low-stock-filter.js' app/src/main/assets/index.html
           grep -Fq 'inventory-serial-imei-export.js' app/src/main/assets/index.html
-          node --check app/src/main/assets/printer-manager.js
-          node --check app/src/main/assets/inventory-history-export.js
-          node --check app/src/main/assets/inventory-low-stock-filter.js
-          node --check app/src/main/assets/inventory-serial-imei-export.js
+          grep -Fq 'settings-printer-summary.js' app/src/main/assets/index.html
           python3 scripts/verify_release_invariants.py
 
       - name: Build Release APK
@@ -78,16 +75,12 @@ jobs:
           "$APKSIGNER" verify --verbose "$APK"
           unzip -p "$APK" assets/index.html > /tmp/index.html
           test -s /tmp/index.html
-          for name in inventory-history-export.js inventory-low-stock-filter.js inventory-serial-imei-export.js; do
+          for name in printer-manager.js inventory-history-export.js inventory-low-stock-filter.js inventory-serial-imei-export.js settings-printer-summary.js; do
             unzip -p "$APK" "assets/$name" > "/tmp/$name"
             test -s "/tmp/$name"
+            node --check "/tmp/$name"
+            grep -Fq "$name" /tmp/index.html
           done
-          grep -Fq 'inventory-history-export.js' /tmp/index.html
-          grep -Fq 'inventory-low-stock-filter.js' /tmp/index.html
-          grep -Fq 'inventory-serial-imei-export.js' /tmp/index.html
-          node --check /tmp/inventory-history-export.js
-          node --check /tmp/inventory-low-stock-filter.js
-          node --check /tmp/inventory-serial-imei-export.js
           unzip -p "$APK" assets/content.js > /tmp/content.js
           test -s /tmp/content.js
 
