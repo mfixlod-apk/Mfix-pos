@@ -9,7 +9,7 @@
         android:theme="@style/AppTheme"
         android:usesCleartextTraffic="true">
         <activity
-            android:name=".QuickPosActivity"
+            android:name=".GranularPermissionsActivePatchActivity"
             android:screenOrientation="unspecified"
             android:exported="true">
             <intent-filter>
@@ -17,6 +17,10 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity
+            android:name=".QuickPosActivity"
+            android:screenOrientation="unspecified"
+            android:exported="false" />
         <activity
             android:name=".YeshInvoiceWebActivity"
             android:screenOrientation="unspecified"
