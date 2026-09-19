@@ -2,7 +2,7 @@
 (function(){
   'use strict';
   const ID='mfix-serial-imei-export-v1';
-  function esc(v){return '"'+String(v==null?'':'').replace(/"/g,'""')+'"';}
+  function esc(v){return '"'+String(v==null?'':v).replace(/"/g,'""')+'"';}
   function download(){
     const state=window.STATE;
     if(!state || !Array.isArray(state.products)){
