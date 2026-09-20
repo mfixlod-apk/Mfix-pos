@@ -15,13 +15,12 @@ android {
     buildTypes {
         release {
             minifyEnabled false
-            // Keep the release artifact directly installable for this internal MFIX release.
             signingConfig signingConfigs.debug
         }
     }
 }
 
-// Compose the large single-file UI with optional native-backed modules at build time.
+// Compose the large single-file UI with the native-backed MFIX modules at build time.
 def generatedMfixAssets = layout.buildDirectory.dir('generated/mfix-assets')
 
 tasks.register('prepareMfixAssets') {
@@ -52,14 +51,50 @@ tasks.register('prepareMfixAssets') {
         contentFile.setText(originalContent.toString(), 'UTF-8')
         delete(partsDir)
 
+        // These modules already live in the repository, but must be loaded by
+        // the WebView page to have any effect in the Android APK. Keep the list
+        // explicit so a future asset cannot silently become dead code.
+        def moduleFiles = [
+            'printer-manager.js',
+            'printer-auto-print.js',
+            'printer-diagnostics.js',
+            'settings-printer-summary.js',
+            'inventory-product-editor.js',
+            'inventory-history-viewer.js',
+            'inventory-history-export.js',
+            'inventory-low-stock-filter.js',
+            'inventory-serial-imei-viewer.js',
+            'inventory-serial-imei-export.js',
+            'checkout-cart-line-controls.js',
+            'payment-safety-guard.js',
+            'reports-csv-export.js',
+            'reports-date-range-fix.js',
+            'users-permissions.js',
+            'backup-restore-safety.js',
+            'yesh-invoice-health-check.js'
+        ]
+
         def index = new File(outDir, 'index.html')
         def html = index.getText('UTF-8')
-        def marker = '<script src="printer-manager.js"></script>'
-        if (!html.contains(marker)) {
-            def close = html.lastIndexOf('</body>')
-            if (close < 0) throw new GradleException('MFIX index.html is missing </body>')
-            html = html.substring(0, close) + marker + '\n' + html.substring(close)
-            index.setText(html, 'UTF-8')
+        def close = html.lastIndexOf('</body>')
+        if (close < 0) throw new GradleException('MFIX index.html is missing </body>')
+
+        // Remove only previously generated module tags so the task is idempotent.
+        moduleFiles.each { fileName ->
+            html = html.replace('<script src="' + fileName + '"></script>\n', '')
+            html = html.replace('<script src="' + fileName + '"></script>', '')
+        }
+
+        def tags = moduleFiles.collect { '<script src="' + it + '"></script>' }.join('\n') + '\n'
+        close = html.lastIndexOf('</body>')
+        html = html.substring(0, close) + tags + html.substring(close)
+        index.setText(html, 'UTF-8')
+
+        moduleFiles.each { fileName ->
+            def module = new File(outDir, fileName)
+            if (!module.isFile() || module.length() == 0) {
+                throw new GradleException('MFIX module is missing or empty: ' + fileName)
+            }
         }
     }
 }
