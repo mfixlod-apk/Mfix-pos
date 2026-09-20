@@ -59,6 +59,7 @@ tasks.register('prepareMfixAssets') {
             'printer-auto-print.js',
             'printer-diagnostics.js',
             'settings-printer-summary.js',
+            'settings-general.js',
             'inventory-product-editor.js',
             'inventory-history-viewer.js',
             'inventory-history-export.js',
