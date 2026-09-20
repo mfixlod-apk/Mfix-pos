@@ -20,7 +20,7 @@ jobs:
           from pathlib import Path
           html_path=Path('app/src/main/assets/index.html')
           html=html_path.read_text(encoding='utf-8')
-          for name in ('inventory-history-export.js','inventory-low-stock-filter.js','inventory-serial-imei-export.js','inventory-serial-imei-viewer.js','inventory-product-editor.js','inventory-history-viewer.js','checkout-cart-line-controls.js','settings-printer-summary.js','printer-auto-print.js','printer-diagnostics.js','reports-date-range-fix.js','yesh-invoice-health-check.js','payment-safety-guard.js'):
+          for name in ('printer-manager.js','inventory-history-export.js','inventory-low-stock-filter.js','inventory-serial-imei-export.js','inventory-serial-imei-viewer.js','inventory-product-editor.js','inventory-history-viewer.js','checkout-cart-line-controls.js','settings-printer-summary.js','printer-auto-print.js','printer-diagnostics.js','reports-date-range-fix.js','yesh-invoice-health-check.js','payment-safety-guard.js'):
               marker=f'<script src="{name}"></script>'
               if marker not in html:
                   html=html.replace('</body>', marker+'\n</body>', 1)
@@ -56,6 +56,7 @@ jobs:
             test -s "app/src/main/assets/$name"
             node --check "app/src/main/assets/$name"
           done
+          grep -Fq 'printer-manager.js' app/src/main/assets/index.html
           grep -Fq 'inventory-history-export.js' app/src/main/assets/index.html
           grep -Fq 'inventory-low-stock-filter.js' app/src/main/assets/index.html
           grep -Fq 'inventory-serial-imei-export.js' app/src/main/assets/index.html
