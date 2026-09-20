@@ -55,12 +55,13 @@
           settings()[key] = input.value;
         });
         const ok = await persist();
-        try{ if(typeof render === 'function') render(); }catch(_){ }
         try{ if(typeof toast === 'function') toast(ok ? 'ההגדרות נשמרו' : 'ההגדרות עודכנו אך לא ניתן היה לשמור', ok ? 'ok' : 'err'); }catch(_){ }
         return;
       }
       if(e.target.closest('[data-mfix-reset-settings]')){
-        render(true);
+        // Rebuild the card from the persisted/current STATE values so unsaved
+        // edits are actually discarded instead of leaving the edited inputs on screen.
+        mount();
       }
     });
     view.appendChild(card);
