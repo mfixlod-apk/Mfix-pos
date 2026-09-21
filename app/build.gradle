@@ -63,6 +63,7 @@ tasks.register('prepareMfixAssets') {
             'payment-failure-signal.js',
             'reports-csv-export.js',
             'reports-date-range-fix.js',
+            'reports-local-export.js',
             'users-permissions.js',
             'backup-restore-safety.js',
             'yesh-invoice-health-check.js'
