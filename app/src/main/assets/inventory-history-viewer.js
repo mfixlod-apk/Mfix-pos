@@ -1,11 +1,17 @@
 /* MFIX inventory stock-history viewer. Read-only UI over STATE.inventoryHistory. */
 (function(){
   'use strict';
-  const ID='mfix-inventory-history-viewer-v2';
+  const ID='mfix-inventory-history-viewer-v3';
   const state=()=>window.STATE||{};
   const products=()=>Array.isArray(state().products)?state().products:[];
   const history=()=>Array.isArray(state().inventoryHistory)?state().inventoryHistory:[];
-  const productName=id=>{const p=products().find(x=>String(x?.id??x?.ID??'')===String(id));return p?.name||p?.Name||String(id||'');};
+  const productName=id=>{
+    const key=String(id??'').trim();
+    const p=products().find(x=>[
+      x?.id,x?.ID,x?.Id,x?.barcode,x?.Barcode,x?.sku,x?.CatalogNumber
+    ].some(v=>String(v??'').trim()===key));
+    return p?.name||p?.Name||p?.ProductName||p?.Description||key;
+  };
   const esc=v=>String(v??'').replace(/[&<>\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   const dateKey=d=>{const x=new Date(d);if(Number.isNaN(x.getTime()))return '';const p=n=>String(n).padStart(2,'0');return x.getFullYear()+'-'+p(x.getMonth()+1)+'-'+p(x.getDate());};
   const delta=h=>{const before=Number(h?.before),after=Number(h?.after);if(Number.isFinite(before)&&Number.isFinite(after))return after-before;const qty=Number(h?.qty);return Number.isFinite(qty)?qty:0;};
