@@ -11,8 +11,10 @@
   function printerSettings(){ try { return JSON.parse(localStorage.getItem('mfix_printer_settings_v1')||'{}') || {}; } catch(e){ return {}; } }
   function defaultPrinterId(){ var s=printerSettings(), stateDefault=''; try { stateDefault=window.STATE && window.STATE.settings ? String(window.STATE.settings.defaultPrinterId||'') : ''; } catch(_){} return String(localStorage.getItem('mfix_default_printer_v1')||stateDefault||s.device||''); }
   function paperMode(){ var s=printerSettings(); return String(s.paperMode||'80MM').toUpperCase()==='58MM'?'58MM':'80MM'; }
+  function autoPrintEnabled(){ var s=printerSettings(); if(s.autoPrint!==undefined) return s.autoPrint===true; try { return window.STATE && window.STATE.settings && window.STATE.settings.printerAutoPrint===false ? false : true; } catch(_) { return true; } }
   function drawerEnabled(){ return printerSettings().drawer === true; }
   function setDrawerEnabled(enabled){ var s=printerSettings(); s.drawer=!!enabled; localStorage.setItem('mfix_printer_settings_v1',JSON.stringify(s)); try{ if(window.STATE&&window.STATE.settings){window.STATE.settings.printerAutoDrawer=!!enabled;if(typeof window.persist==='function')window.persist('settings');} }catch(e){} }
+  function setAutoPrint(enabled){ var s=printerSettings(); s.autoPrint=!!enabled; s.printerAutoPrint=!!enabled; localStorage.setItem('mfix_printer_settings_v1',JSON.stringify(s)); try{ if(window.STATE&&window.STATE.settings){window.STATE.settings.printerAutoPrint=!!enabled;if(typeof window.persist==='function')window.persist('settings');} }catch(e){} }
   function setDefaultPrinter(p){
     if(!p || !p.id) return false;
     var id=String(p.id); localStorage.setItem('mfix_default_printer_v1', id);
@@ -46,12 +48,14 @@
       '<div style="display:flex;justify-content:space-between;align-items:center"><h3 style="margin:0">ניהול מדפסות</h3><div style="display:flex;align-items:center;gap:8px"><button id="mfixPrinterRefresh" class="btn btn-ghost" style="padding:5px 9px">↻ רענן</button><button id="mfixPrinterClose" style="border:0;background:none;font-size:22px">×</button></div></div>' +
       '<div style="margin:10px 0 14px;color:#6b7686;font-size:13px">מדפסות USB שהתגלו על ידי MFIX. בחר מדפסת ברירת מחדל לפני הדפסת קבלות אוטומטית.</div>' +
       '<div id="mfixPrinterSummary">'+summary+'</div>' +
+      '<label style="display:flex;align-items:center;gap:9px;margin:0 0 10px;padding:10px 11px;border:1px solid #e2e7ef;border-radius:10px;cursor:pointer"><input id="mfixPrinterAutoPrint" type="checkbox" '+(autoPrintEnabled()?'checked':'')+' style="transform:scale(1.25)"><span><b>הדפס קבלה אוטומטית לאחר מכירה</b><br><span style="font-size:11px;color:#6b7686">משתמש במסלול ההדפסה הנתמך של MFIX לאחר שהמכירה נשמרה.</span></span></label>' +
       '<div style="display:flex;align-items:center;gap:10px;margin:0 0 10px;padding:9px 11px;border:1px solid #e2e7ef;border-radius:10px"><b>רוחב נייר</b><select id="mfixPrinterPaperMode" style="padding:7px;border-radius:8px;border:1px solid #ccd4df"><option value="80MM" '+(paperMode()==='80MM'?'selected':'')+'>80 מ״מ</option><option value="58MM" '+(paperMode()==='58MM'?'selected':'')+'>58 מ״מ</option></select><span style="font-size:12px;color:#6b7686">משמש להדפסת PDF</span></div>' +
       '<label style="display:flex;align-items:center;gap:9px;margin:0 0 12px;padding:10px 11px;border:1px solid #e2e7ef;border-radius:10px;cursor:pointer"><input id="mfixPrinterDrawer" type="checkbox" '+(drawerEnabled()?'checked':'')+' style="transform:scale(1.25)"><span><b>פתיחת מגירה אוטומטית במכירת מזומן</b><br><span style="font-size:11px;color:#6b7686">נשלחת פקודת Pulse למדפסת ברירת המחדל לאחר עסקה שיש בה מזומן.</span></span></label>' +
       '<div id="mfixPrinterRows">'+rows+'</div></div></div>';
     document.body.insertAdjacentHTML('beforeend',html);
     document.getElementById('mfixPrinterClose').onclick=function(){document.getElementById('mfixPrinterOverlay').remove();};
     document.getElementById('mfixPrinterRefresh').onclick=function(){document.getElementById('mfixPrinterOverlay').remove();open();};
+    document.getElementById('mfixPrinterAutoPrint').onchange=function(){setAutoPrint(this.checked);};
     document.getElementById('mfixPrinterPaperMode').onchange=function(){savePaperMode(this.value);};
     document.getElementById('mfixPrinterDrawer').onchange=function(){setDrawerEnabled(this.checked);};
     document.getElementById('mfixPrinterOverlay').onclick=function(e){if(e.target===this)this.remove();};
