@@ -2,6 +2,41 @@
   if(window.__mfixCheckoutCartLineControls)return;
   window.__mfixCheckoutCartLineControls=true;
   function money(v){return '₪'+Number(v||0).toFixed(2);}
+  function stockFor(item){
+    var products=window.STATE&&Array.isArray(window.STATE.products)?window.STATE.products:[];
+    var id=String(item&&item.productId!=null?item.productId:'');
+    var barcode=String(item&&item.barcode!=null?item.barcode:'');
+    var p=products.find(function(x){
+      var pid=String(x&&((x.id!=null?x.id:(x.ID!=null?x.ID:x.Id))||''));
+      var pb=String(x&&((x.barcode!=null?x.barcode:(x.Barcode!=null?x.Barcode:''))||''));
+      return (id&&pid===id)||(barcode&&pb===barcode);
+    });
+    if(!p)return null;
+    var keys=['stock','Stock','quantity','Quantity','qty','Qty','inventory','Inventory'];
+    for(var i=0;i<keys.length;i++){
+      if(p[keys[i]]!==undefined&&p[keys[i]]!==null&&String(p[keys[i]]).trim()!==''){
+        var n=Number(p[keys[i]]);
+        if(Number.isFinite(n))return Math.max(0,Math.floor(n));
+      }
+    }
+    return null;
+  }
+  function cartQtyExcept(index,item){
+    var c=window.STATE&&Array.isArray(window.STATE.cart)?window.STATE.cart:[];
+    var key=item&&item.productId!=null&&String(item.productId)!==''?'id:'+String(item.productId):(item&&item.barcode!=null&&String(item.barcode)!==''?'barcode:'+String(item.barcode):null);
+    if(!key)return 0;
+    return c.reduce(function(sum,x,i){
+      if(i===index)return sum;
+      var k=x&&x.productId!=null&&String(x.productId)!==''?'id:'+String(x.productId):(x&&x.barcode!=null&&String(x.barcode)!==''?'barcode:'+String(x.barcode):null);
+      return k===key?sum+Math.max(1,Math.floor(Number(x.qty||1))):sum;
+    },0);
+  }
+  function allowedQty(index,item,requested){
+    var stock=stockFor(item);
+    if(stock===null)return Math.max(1,requested);
+    var allowed=Math.max(0,stock-cartQtyExcept(index,item));
+    return Math.max(0,Math.min(Math.max(1,requested),allowed));
+  }
   function refresh(){
     var v=document.getElementById('view-pos');
     if(!v||!window.STATE||!Array.isArray(window.STATE.cart))return;
@@ -21,16 +56,18 @@
       var qty=Math.max(1,Number(item.qty||1));
       var name=item.name||item.title||item.productName||'מוצר';
       var price=Number(item.price||item.unitPrice||0);
+      var stock=stockFor(item);
+      var stockLabel=stock===null?'':' · מלאי: '+stock;
       return '<div data-mfix-line="'+i+'" style="display:flex;align-items:center;justify-content:space-between;gap:8px;border-bottom:1px solid var(--gray-200);padding:7px 0">'+
-        '<div style="min-width:0;flex:1"><b>'+String(name).replace(/[&<>\"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c];})+'</b><div class="muted" style="font-size:11px">'+money(price)+' ליח׳ · '+money(price*qty)+'</div></div>'+
+        '<div style="min-width:0;flex:1"><b>'+String(name).replace(/[&<>\"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c];})+'</b><div class="muted" style="font-size:11px">'+money(price)+' ליח׳ · '+money(price*qty)+stockLabel+'</div></div>'+ 
         '<div style="display:flex;align-items:center;gap:4px;flex-shrink:0">'+
-        '<button type="button" class="btn btn-ghost" data-mfix-qty="'+i+'" data-dir="-1" aria-label="הפחת כמות">−</button>'+
+        '<button type="button" class="btn btn-ghost" data-mfix-qty="'+i+'" data-dir="-1" aria-label="הפחת כמות">−</button>'+ 
         '<input type="number" min="1" step="1" inputmode="numeric" value="'+qty+'" data-mfix-qty-input="'+i+'" aria-label="כמות" style="width:58px;padding:8px 5px;text-align:center;border:1px solid var(--gray-300);border-radius:8px;font-weight:700">'+
-        '<button type="button" class="btn btn-ghost" data-mfix-qty="'+i+'" data-dir="1" aria-label="הגדל כמות">+</button>'+
-        '<button type="button" class="btn btn-ghost" data-mfix-remove="'+i+'" aria-label="הסר">✕</button>'+
+        '<button type="button" class="btn btn-ghost" data-mfix-qty="'+i+'" data-dir="1" aria-label="הגדל כמות">+</button>'+ 
+        '<button type="button" class="btn btn-ghost" data-mfix-remove="'+i+'" aria-label="הסר">✕</button>'+ 
         '</div></div>';
     }).join('');
-    host.querySelectorAll('[data-mfix-qty]').forEach(function(btn){btn.onclick=function(){var i=Number(btn.dataset.mfixQty),d=Number(btn.dataset.dir),c=window.STATE.cart;if(!c[i])return;var q=Math.max(0,Number(c[i].qty||1)+d);if(q===0)c.splice(i,1);else c[i].qty=q;persist();};});
+    host.querySelectorAll('[data-mfix-qty]').forEach(function(btn){btn.onclick=function(){var i=Number(btn.dataset.mfixQty),d=Number(btn.dataset.dir),c=window.STATE.cart;if(!c[i])return;var current=Math.max(1,Math.floor(Number(c[i].qty||1)));var requested=current+d;if(requested<1){c.splice(i,1);persist();return}var allowed=allowedQty(i,c[i],requested);if(allowed<requested){if(window.toast)window.toast('לא ניתן לעבור את המלאי הזמין','err');return}c[i].qty=allowed;persist();};});
     host.querySelectorAll('[data-mfix-qty-input]').forEach(function(input){
       input.addEventListener('change',function(){
         var i=Number(input.dataset.mfixQtyInput),c=window.STATE.cart;
@@ -39,6 +76,12 @@
         if(!Number.isFinite(q)||q<1){
           input.value=Math.max(1,Number(c[i].qty||1));
           if(window.toast)window.toast('הכמות חייבת להיות לפחות 1','err');
+          return;
+        }
+        var allowed=allowedQty(i,c[i],q);
+        if(allowed<q){
+          input.value=Math.max(1,Number(c[i].qty||1));
+          if(window.toast)window.toast('הכמות שביקשת גבוהה מהמלאי הזמין','err');
           return;
         }
         c[i].qty=q;
