@@ -1,6 +1,6 @@
 (()=>{
-  if(window.__MFIX_YI_PAYLOAD_VALIDATOR_100__) return;
-  window.__MFIX_YI_PAYLOAD_VALIDATOR_100__=1;
+  if(window.__MFIX_YI_PAYLOAD_VALIDATOR_110__) return;
+  window.__MFIX_YI_PAYLOAD_VALIDATOR_110__=1;
   const esc=s=>String(s??'').replace(/[&<>\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[c]));
   function validate(){
     const cart=Array.isArray(window.STATE&&STATE.cart)?STATE.cart:[];
@@ -18,6 +18,26 @@
     const customerPhone=String(window.STATE&&STATE.docCustomerPhone||'').trim();
     return {ok:issues.length===0,issues,count:cart.length,customerName,customerPhone};
   }
+  function showIssues(r){
+    const text=r.issues&&r.issues.length?r.issues.join('\n'):'נתוני המכירה אינם תקינים';
+    try{if(typeof window.toast==='function'){window.toast(text,'err');return;}}catch(_){}
+    try{alert('לא ניתן להעביר ליש חשבונית עדיין:\n\n'+text);}catch(_){}
+  }
+  function isYeshTarget(el){
+    if(!el)return false;
+    const text=String(el.innerText||el.textContent||el.getAttribute?.('aria-label')||el.title||'').replace(/\s+/g,' ').trim();
+    return /יש\s*חשבונית/i.test(text);
+  }
+  document.addEventListener('click',e=>{
+    const target=e.target?.closest?.('button,a,[role="button"]');
+    if(!target||!isYeshTarget(target))return;
+    const r=validate();
+    if(!r.ok){
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      showIssues(r);
+    }
+  },true);
   function render(){
     const r=validate();
     let box=document.getElementById('mfix-yi-payload-validation');
