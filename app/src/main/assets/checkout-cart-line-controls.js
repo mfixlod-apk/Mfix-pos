@@ -22,12 +22,12 @@
       var name=item.name||item.title||item.productName||'מוצר';
       var price=Number(item.price||item.unitPrice||0);
       return '<div data-mfix-line="'+i+'" style="display:flex;align-items:center;justify-content:space-between;gap:8px;border-bottom:1px solid var(--gray-200);padding:7px 0">'+
-        '<div style="min-width:0;flex:1"><b>'+String(name).replace(/[&<>\"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c];})+'</b><div class="muted" style="font-size:11px">'+money(price)+' ליח׳ · '+money(price*qty)+'</div></div>'+\
-        '<div style="display:flex;align-items:center;gap:4px;flex-shrink:0">'+\
-        '<button type="button" class="btn btn-ghost" data-mfix-qty="'+i+'" data-dir="-1" aria-label="הפחת כמות">−</button>'+\
-        '<input type="number" min="1" step="1" inputmode="numeric" value="'+qty+'" data-mfix-qty-input="'+i+'" aria-label="כמות" style="width:58px;padding:8px 5px;text-align:center;border:1px solid var(--gray-300);border-radius:8px;font-weight:700">'+\
-        '<button type="button" class="btn btn-ghost" data-mfix-qty="'+i+'" data-dir="1" aria-label="הגדל כמות">+</button>'+\
-        '<button type="button" class="btn btn-ghost" data-mfix-remove="'+i+'" aria-label="הסר">✕</button>'+\
+        '<div style="min-width:0;flex:1"><b>'+String(name).replace(/[&<>\"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c];})+'</b><div class="muted" style="font-size:11px">'+money(price)+' ליח׳ · '+money(price*qty)+'</div></div>'+
+        '<div style="display:flex;align-items:center;gap:4px;flex-shrink:0">'+
+        '<button type="button" class="btn btn-ghost" data-mfix-qty="'+i+'" data-dir="-1" aria-label="הפחת כמות">−</button>'+
+        '<input type="number" min="1" step="1" inputmode="numeric" value="'+qty+'" data-mfix-qty-input="'+i+'" aria-label="כמות" style="width:58px;padding:8px 5px;text-align:center;border:1px solid var(--gray-300);border-radius:8px;font-weight:700">'+
+        '<button type="button" class="btn btn-ghost" data-mfix-qty="'+i+'" data-dir="1" aria-label="הגדל כמות">+</button>'+
+        '<button type="button" class="btn btn-ghost" data-mfix-remove="'+i+'" aria-label="הסר">✕</button>'+
         '</div></div>';
     }).join('');
     host.querySelectorAll('[data-mfix-qty]').forEach(function(btn){btn.onclick=function(){var i=Number(btn.dataset.mfixQty),d=Number(btn.dataset.dir),c=window.STATE.cart;if(!c[i])return;var q=Math.max(0,Number(c[i].qty||1)+d);if(q===0)c.splice(i,1);else c[i].qty=q;persist();};});
