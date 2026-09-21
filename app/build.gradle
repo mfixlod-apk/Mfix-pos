@@ -49,6 +49,7 @@ tasks.register('prepareMfixAssets') {
             'printer-manager.js',
             'printer-auto-print.js',
             'printer-diagnostics.js',
+            'printer-reprint-last.js',
             'settings-printer-summary.js',
             'settings-general.js',
             'inventory-product-editor.js',
