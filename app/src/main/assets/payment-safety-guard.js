@@ -67,15 +67,33 @@
   },true);
 
   const successRe=/(עסקה\s*אושרה|העסקה\s*בוצעה\s*בהצלחה|התשלום\s*בוצע\s*בהצלחה|סליקה\s*בוצעה\s*בהצלחה|אושר\s*בהצלחה)/i;
+  const failureRe=/(עסקה\s*(נכשלה|נדחתה|בוטלה)|התשלום\s*(נכשל|נדחה|בוטל)|סליקה\s*(נכשלה|נדחתה|בוטלה)|לא\s*אושרה|שגיאה\s*בסליקה|ביטול\s*עסקה)/i;
   let scanTimer=0;
+  let recentMutationText='';
   const scan=()=>{
     clearTimeout(scanTimer);
     scanTimer=setTimeout(()=>{
       const d=read();if(!d||d.status!=='started')return;
-      if(successRe.test(norm(document.body?.innerText||'')))mark('native-success-signal-observed');
+      const text=norm(recentMutationText);
+      recentMutationText='';
+      if(!text)return;
+      if(successRe.test(text))mark('native-success-signal-observed');
+      else if(failureRe.test(text))mark('native-failure-signal-observed');
     },180);
   };
-  new MutationObserver(scan).observe(document.documentElement,{subtree:true,childList:true,characterData:true});
+  const observer=new MutationObserver(mutations=>{
+    let text='';
+    for(const m of mutations){
+      if(m.type==='characterData') text+=' '+(m.target?.nodeValue||'');
+      for(const node of Array.from(m.addedNodes||[])){
+        if(node.nodeType===3) text+=' '+(node.nodeValue||'');
+        else if(node.nodeType===1) text+=' '+(node.innerText||node.textContent||'');
+      }
+    }
+    recentMutationText=norm(text).slice(-4000);
+    if(recentMutationText)scan();
+  });
+  observer.observe(document.documentElement,{subtree:true,childList:true,characterData:true});
   recoverStale();
   setInterval(recoverStale,10000);
 
