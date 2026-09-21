@@ -25,9 +25,6 @@
       localStorage.setItem(KEY, value);
       saved = true;
     }catch(_){ }
-    // Keep the application's canonical STATE persistence in sync as well.
-    // Without this, settings could appear saved in the module's own storage
-    // while the main POS state still contains the old values after restart.
     try{
       if(typeof window.persist === 'function'){
         const result = window.persist('settings');
@@ -52,6 +49,8 @@
       <div class="grid2">
         <div class="field"><label class="flabel">שם העסק</label><input class="input" data-mfix-setting="businessName" value="${esc(s.businessName || s.storeName || '')}" placeholder="Mfix"></div>
         <div class="field"><label class="flabel">טלפון העסק</label><input class="input" data-mfix-setting="businessPhone" value="${esc(s.businessPhone || s.phone || '')}" placeholder="050-0000000"></div>
+        <div class="field"><label class="flabel">אימייל העסק</label><input class="input" type="email" data-mfix-setting="businessEmail" value="${esc(s.businessEmail || s.email || '')}" placeholder="office@example.com" autocomplete="email"></div>
+        <div class="field"><label class="flabel">מספר עוסק / חברה</label><input class="input" data-mfix-setting="businessTaxId" value="${esc(s.businessTaxId || s.taxId || '')}" placeholder="ע.מ. / ח.פ."></div>
       </div>
       <div class="field"><label class="flabel">כתובת העסק</label><input class="input" data-mfix-setting="businessAddress" value="${esc(s.businessAddress || s.address || '')}" placeholder="כתובת החנות"></div>
       <div class="field"><label class="flabel">שורת תחתית למסמך</label><textarea class="input" rows="2" data-mfix-setting="receiptFooter" placeholder="תודה שקניתם ב-Mfix">${esc(s.receiptFooter || '')}</textarea></div>
@@ -71,8 +70,6 @@
         return;
       }
       if(e.target.closest('[data-mfix-reset-settings]')){
-        // Rebuild the card from the persisted/current STATE values so unsaved
-        // edits are actually discarded instead of leaving the edited inputs on screen.
         mount();
       }
     });
