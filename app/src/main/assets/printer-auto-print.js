@@ -1,7 +1,7 @@
 (function(){
   'use strict';
-  if(window.__mfixAutoPrintHookLoadedV2) return;
-  window.__mfixAutoPrintHookLoadedV2=true;
+  if(window.__mfixAutoPrintHookLoadedV3) return;
+  window.__mfixAutoPrintHookLoadedV3=true;
   function settings(){
     try{return JSON.parse(localStorage.getItem('mfix_printer_settings_v1')||'{}');}catch(_){return {};}
   }
@@ -21,10 +21,20 @@
     if(sales.length<=before)return;
     const sale=sales[sales.length-1];
     if(!sale || !sale.id || typeof window.printDoc!=='function')return;
-    if(selectedPrinter(s)&&selectedPrinter(s).authorized===false){
+
+    // Do not invoke the supported print path blindly. A configured default
+    // printer must still be physically discoverable and USB-authorized at the
+    // moment the sale is finalized.
+    const printer=selectedPrinter(s);
+    if(!printer){
+      try{window.toast('המכירה נשמרה, אך לא נמצאה מדפסת ברירת מחדל מחוברת','err');}catch(_){}
+      return;
+    }
+    if(printer.authorized===false){
       try{window.toast('המכירה נשמרה, אך למדפסת אין הרשאת USB','err');}catch(_){}
       return;
     }
+
     const id=String(sale.id);
     if(String(localStorage.getItem('mfix_last_auto_printed_sale_v1')||'')===id)return;
     if(window.__mfixAutoPrintInFlight)return;
@@ -41,8 +51,8 @@
     }
   }
   async function hook(){
-    if(typeof window.finalizeSale!=='function' || window.__mfixAutoPrintWrappedV2) return false;
-    window.__mfixAutoPrintWrappedV2=true;
+    if(typeof window.finalizeSale!=='function' || window.__mfixAutoPrintWrappedV3) return false;
+    window.__mfixAutoPrintWrappedV3=true;
     const original=window.finalizeSale;
     window.finalizeSale=async function(){
       const before=window.STATE&&Array.isArray(window.STATE.sales)?window.STATE.sales.length:-1;
