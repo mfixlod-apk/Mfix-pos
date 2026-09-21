@@ -2,6 +2,7 @@
 (function(){
   'use strict';
   const ID='mfix-serial-imei-viewer-v2';
+  const BTN_ID=ID+'-button';
   function esc(v){return String(v==null?'':v).replace(/[&<>\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[c]));}
   function collect(){
     const state=window.STATE;
@@ -24,7 +25,7 @@
       if(typeof window.toast==='function') window.toast('המלאי אינו זמין','err');
       return;
     }
-    const old=document.getElementById(ID); if(old) old.remove();
+    document.getElementById(ID)?.remove();
     const wrap=document.createElement('div'); wrap.id=ID; wrap.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;';
     const box=document.createElement('div'); box.style.cssText='background:#fff;color:#111;width:min(900px,96vw);max-height:90vh;overflow:auto;border-radius:12px;padding:18px;';
     box.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><h3 style="margin:0">📱 IMEI / Serial</h3><button id="mfix-serial-close" type="button">✕</button></div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><input id="mfix-serial-search" type="search" placeholder="חיפוש מוצר / מק״ט / IMEI / Serial" style="flex:1;min-width:240px;padding:9px;border:1px solid #ccc;border-radius:8px"><select id="mfix-serial-status" style="padding:9px;border:1px solid #ccc;border-radius:8px"><option value="">כל הסטטוסים</option></select></div>';
@@ -42,10 +43,10 @@
     box.querySelector('#mfix-serial-close').onclick=()=>wrap.remove(); wrap.addEventListener('click',e=>{if(e.target===wrap) wrap.remove();});
   }
   function install(){
-    if(document.getElementById(ID)) return;
     const active=document.querySelector('.view.active');
     if(!active || !/מלאי|מוצרים/.test(active.innerText||'')) return;
-    const btn=document.createElement('button'); btn.id=ID;btn.className='btn btn-outline';btn.type='button';btn.textContent='📱 IMEI / Serial';btn.onclick=show;
+    if(active.querySelector('#'+BTN_ID)) return;
+    const btn=document.createElement('button'); btn.id=BTN_ID;btn.className='btn btn-outline';btn.type='button';btn.textContent='📱 IMEI / Serial';btn.onclick=show;
     const buttons=[...active.querySelectorAll('button')];
     const anchor=buttons.find(b=>/ייצוא IMEI|היסטוריה|ייצוא|ייבוא/.test(b.textContent||''));
     if(anchor&&anchor.parentElement) anchor.parentElement.appendChild(btn); else active.insertBefore(btn,active.firstChild);
