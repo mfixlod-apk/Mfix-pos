@@ -20,7 +20,6 @@ android {
     }
 }
 
-// Compose the large single-file UI with the native-backed MFIX modules at build time.
 def generatedMfixAssets = layout.buildDirectory.dir('generated/mfix-assets')
 
 tasks.register('prepareMfixAssets') {
@@ -34,9 +33,6 @@ tasks.register('prepareMfixAssets') {
             into(outDir)
         }
 
-        // The original MFIX 16.9.19 content.js is stored in numbered chunks
-        // because GitHub's text-content endpoint has payload limits. Reassemble
-        // it byte-for-byte (UTF-8 text) before packaging the Android assets.
         def partsDir = new File(outDir, 'content_parts')
         def parts = partsDir.listFiles({ f -> f.name ==~ /\d{2}\.js/ } as FileFilter)
         if (!parts || parts.length != 19) {
@@ -44,16 +40,11 @@ tasks.register('prepareMfixAssets') {
         }
         parts.sort { a, b -> a.name <=> b.name }
         def originalContent = new StringBuilder()
-        parts.each { f ->
-            originalContent.append(f.getText('UTF-8'))
-        }
+        parts.each { f -> originalContent.append(f.getText('UTF-8')) }
         def contentFile = new File(outDir, 'content.js')
         contentFile.setText(originalContent.toString(), 'UTF-8')
         delete(partsDir)
 
-        // These modules already live in the repository, but must be loaded by
-        // the WebView page to have any effect in the Android APK. Keep the list
-        // explicit so a future asset cannot silently become dead code.
         def moduleFiles = [
             'printer-manager.js',
             'printer-auto-print.js',
@@ -67,6 +58,7 @@ tasks.register('prepareMfixAssets') {
             'inventory-serial-imei-viewer.js',
             'inventory-serial-imei-export.js',
             'checkout-cart-line-controls.js',
+            'checkout-stock-guard.js',
             'payment-safety-guard.js',
             'reports-csv-export.js',
             'reports-date-range-fix.js',
@@ -80,7 +72,6 @@ tasks.register('prepareMfixAssets') {
         def close = html.lastIndexOf('</body>')
         if (close < 0) throw new GradleException('MFIX index.html is missing </body>')
 
-        // Remove only previously generated module tags so the task is idempotent.
         moduleFiles.each { fileName ->
             html = html.replace('<script src="' + fileName + '"></script>\n', '')
             html = html.replace('<script src="' + fileName + '"></script>', '')
