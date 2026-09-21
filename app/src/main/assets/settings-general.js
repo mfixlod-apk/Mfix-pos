@@ -14,16 +14,28 @@
 
   async function persist(){
     const value = JSON.stringify(settings());
+    let saved = false;
     try{
       if(window.storage && typeof window.storage.set === 'function'){
         await window.storage.set(KEY, value);
-        return true;
+        saved = true;
       }
     }catch(_){ }
     try{
       localStorage.setItem(KEY, value);
-      return true;
-    }catch(_){ return false; }
+      saved = true;
+    }catch(_){ }
+    // Keep the application's canonical STATE persistence in sync as well.
+    // Without this, settings could appear saved in the module's own storage
+    // while the main POS state still contains the old values after restart.
+    try{
+      if(typeof window.persist === 'function'){
+        const result = window.persist('settings');
+        if(result && typeof result.then === 'function') await result;
+        saved = true;
+      }
+    }catch(_){ }
+    return saved;
   }
 
   function render(){
