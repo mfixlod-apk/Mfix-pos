@@ -7,9 +7,8 @@
   const history=()=>Array.isArray(state().inventoryHistory)?state().inventoryHistory:[];
   const productName=id=>{const p=products().find(x=>String(x?.id??x?.ID??'')===String(id));return p?.name||p?.Name||String(id||'');};
   const esc=v=>String(v??'').replace(/[&<>\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-  // Use the device's local calendar date for filtering. ISO/UTC conversion can
-  // move a late-night local transaction into the adjacent calendar day.
   const dateKey=d=>{const x=new Date(d);if(Number.isNaN(x.getTime()))return '';const p=n=>String(n).padStart(2,'0');return x.getFullYear()+'-'+p(x.getMonth()+1)+'-'+p(x.getDate());};
+  const delta=h=>{const before=Number(h?.before),after=Number(h?.after);if(Number.isFinite(before)&&Number.isFinite(after))return after-before;const qty=Number(h?.qty);return Number.isFinite(qty)?qty:0;};
   function open(){
     document.getElementById(ID)?.remove();
     const all=history().slice().sort((a,b)=>new Date(b?.at||0)-new Date(a?.at||0));
@@ -17,7 +16,7 @@
     const typeOptions=[...new Set(all.map(h=>String(h?.type||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'he')).map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
     const d=document.createElement('div'); d.id=ID; d.dir='rtl';
     d.style.cssText='position:fixed;inset:0;z-index:2147483646;background:#0008;display:flex;align-items:center;justify-content:center;padding:14px;font:14px Arial';
-    d.innerHTML=`<div style="width:min(1100px,98vw);max-height:92vh;background:#fff;border-radius:16px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px #0008"><div style="padding:15px 18px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between"><div><div style="font-size:19px;font-weight:900">📋 היסטוריית מלאי</div><div id="${ID}-count" style="font-size:12px;color:#667085;margin-top:3px"></div></div><button id="${ID}-close" class="btn btn-outline">סגור</button></div><div style="padding:10px 14px;border-bottom:1px solid #e5e7eb;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px"><label>מוצר<select id="${ID}-product" class="input" style="width:100%"><option value="">כל המוצרים</option>${productOptions}</select></label><label>סוג פעולה<select id="${ID}-type" class="input" style="width:100%"><option value="">כל הסוגים</option>${typeOptions}</select></label><label>מתאריך<input id="${ID}-from" class="input" type="date" style="width:100%"></label><label>עד תאריך<input id="${ID}-to" class="input" type="date" style="width:100%"></label></div><div style="overflow:auto;padding:10px 14px"><table class="tbl" style="min-width:780px"><thead><tr><th>תאריך</th><th>מוצר</th><th>סוג פעולה</th><th>כמות</th><th>לפני</th><th>אחרי</th><th>סיבה</th></tr></thead><tbody id="${ID}-tbody"></tbody></table></div></div>`;
+    d.innerHTML=`<div style="width:min(1100px,98vw);max-height:92vh;background:#fff;border-radius:16px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px #0008"><div style="padding:15px 18px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between"><div><div style="font-size:19px;font-weight:900">📋 היסטוריית מלאי</div><div id="${ID}-count" style="font-size:12px;color:#667085;margin-top:3px"></div></div><button id="${ID}-close" class="btn btn-outline">סגור</button></div><div style="padding:10px 14px;border-bottom:1px solid #e5e7eb;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px"><label>מוצר<select id="${ID}-product" class="input" style="width:100%"><option value="">כל המוצרים</option>${productOptions}</select></label><label>סוג פעולה<select id="${ID}-type" class="input" style="width:100%"><option value="">כל הסוגים</option>${typeOptions}</select></label><label>מתאריך<input id="${ID}-from" class="input" type="date" style="width:100%"></label><label>עד תאריך<input id="${ID}-to" class="input" type="date" style="width:100%"></label></div><div id="${ID}-summary" style="padding:10px 14px;border-bottom:1px solid #e5e7eb;display:flex;gap:8px;flex-wrap:wrap;font-size:13px;font-weight:700"></div><div style="overflow:auto;padding:10px 14px"><table class="tbl" style="min-width:780px"><thead><tr><th>תאריך</th><th>מוצר</th><th>סוג פעולה</th><th>כמות</th><th>לפני</th><th>אחרי</th><th>סיבה</th></tr></thead><tbody id="${ID}-tbody"></tbody></table></div></div>`;
     document.documentElement.appendChild(d);
     const render=()=>{
       const product=d.querySelector('#'+ID+'-product').value;
@@ -25,7 +24,11 @@
       const from=d.querySelector('#'+ID+'-from').value;
       const to=d.querySelector('#'+ID+'-to').value;
       const rows=all.filter(h=>{const n=productName(h?.productId),t=String(h?.type||'').trim(),day=dateKey(h?.at);return (!product||n===product)&&(!type||t===type)&&(!from||day>=from)&&(!to||day<=to);});
+      const net=rows.reduce((sum,h)=>sum+delta(h),0);
+      const added=rows.reduce((sum,h)=>{const d=delta(h);return sum+(d>0?d:0)},0);
+      const removed=rows.reduce((sum,h)=>{const d=delta(h);return sum+(d<0?-d:0)},0);
       d.querySelector('#'+ID+'-count').textContent=`${rows.length} מתוך ${all.length} תנועות מלאי`;
+      d.querySelector('#'+ID+'-summary').innerHTML=`<span>סה״כ תנועות: ${rows.length}</span><span>נכנס למלאי: +${added}</span><span>יצא מהמלאי: -${removed}</span><span>שינוי נטו: ${net>=0?'+':''}${net}</span>`;
       d.querySelector('#'+ID+'-tbody').innerHTML=rows.map(h=>`<tr><td>${esc(h?.at?new Date(h.at).toLocaleString('he-IL'):'')}</td><td>${esc(productName(h?.productId))}</td><td>${esc(h?.type||'')}</td><td>${esc(h?.qty??'')}</td><td>${esc(h?.before??'')}</td><td>${esc(h?.after??'')}</td><td>${esc(h?.reason||'')}</td></tr>`).join('')||'<tr><td colspan="7" style="text-align:center;padding:30px">אין תנועות התואמות לסינון</td></tr>';
     };
     d.querySelector('#'+ID+'-close').onclick=()=>d.remove();
