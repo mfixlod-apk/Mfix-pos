@@ -67,7 +67,8 @@ tasks.register('prepareMfixAssets') {
             'users-permissions.js',
             'backup-restore-safety.js',
             'backup-restore-validator.js',
-            'yesh-invoice-health-check.js'
+            'yesh-invoice-health-check.js',
+            'yesh-invoice-payload-validator.js'
         ]
 
         def index = new File(outDir, 'index.html')
