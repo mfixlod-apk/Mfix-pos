@@ -7,7 +7,9 @@
   const history=()=>Array.isArray(state().inventoryHistory)?state().inventoryHistory:[];
   const productName=id=>{const p=products().find(x=>String(x?.id??x?.ID??'')===String(id));return p?.name||p?.Name||String(id||'');};
   const esc=v=>String(v??'').replace(/[&<>\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-  const dateKey=d=>{const x=new Date(d);return Number.isNaN(x.getTime())?'':x.toISOString().slice(0,10)};
+  // Use the device's local calendar date for filtering. ISO/UTC conversion can
+  // move a late-night local transaction into the adjacent calendar day.
+  const dateKey=d=>{const x=new Date(d);if(Number.isNaN(x.getTime()))return '';const p=n=>String(n).padStart(2,'0');return x.getFullYear()+'-'+p(x.getMonth()+1)+'-'+p(x.getDate());};
   function open(){
     document.getElementById(ID)?.remove();
     const all=history().slice().sort((a,b)=>new Date(b?.at||0)-new Date(a?.at||0));
