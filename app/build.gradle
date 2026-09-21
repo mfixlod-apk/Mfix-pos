@@ -60,6 +60,7 @@ tasks.register('prepareMfixAssets') {
             'checkout-cart-line-controls.js',
             'checkout-stock-guard.js',
             'payment-safety-guard.js',
+            'payment-failure-signal.js',
             'reports-csv-export.js',
             'reports-date-range-fix.js',
             'users-permissions.js',
