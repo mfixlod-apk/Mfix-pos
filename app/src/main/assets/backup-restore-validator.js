@@ -20,6 +20,14 @@
     for(const key of ARRAY_FIELDS){
       if(!Array.isArray(value[key])) return 'שדה '+key+' אינו רשימה תקינה';
     }
+    // Newer backups may carry persisted misc data. Validate it when present,
+    // while keeping compatibility with older backups that do not have this key.
+    if(value.misc!=null){
+      if(typeof value.misc!=='object' || Array.isArray(value.misc)) return 'שדה misc אינו אובייקט תקין';
+      if(value.misc.inventoryHistory!=null && !Array.isArray(value.misc.inventoryHistory)){
+        return 'שדה misc.inventoryHistory אינו רשימה תקינה';
+      }
+    }
     return '';
   }
   async function validateEvent(evt){
