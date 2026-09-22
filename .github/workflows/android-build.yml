@@ -20,7 +20,7 @@ jobs:
           from pathlib import Path
           html_path=Path('app/src/main/assets/index.html')
           html=html_path.read_text(encoding='utf-8')
-          for name in ('printer-manager.js','inventory-history-export.js','inventory-low-stock-filter.js','inventory-serial-imei-export.js','inventory-serial-imei-viewer.js','inventory-product-editor.js','inventory-history-viewer.js','inventory-history-filtered-export.js','checkout-cart-line-controls.js','settings-printer-summary.js','settings-general.js','printer-auto-print.js','printer-diagnostics.js','reports-date-range-fix.js','reports-csv-export.js','users-permissions.js','yesh-invoice-health-check.js','payment-safety-guard.js','backup-restore-safety.js'):
+          for name in ('printer-manager.js','inventory-history-export.js','inventory-low-stock-filter.js','inventory-serial-imei-export.js','inventory-serial-imei-viewer.js','inventory-product-editor.js','inventory-history-viewer.js','inventory-history-filtered-export.js','checkout-cart-line-controls.js','settings-printer-summary.js','settings-general.js','printer-auto-print.js','printer-diagnostics.js','printer-settings-compat.js','reports-date-range-fix.js','reports-csv-export.js','users-permissions.js','yesh-invoice-health-check.js','payment-safety-guard.js','backup-restore-safety.js'):
               marker=f'<script src="{name}"></script>'
               if marker not in html:
                   html=html.replace('</body>', marker+'\n</body>', 1)
@@ -52,7 +52,7 @@ jobs:
       - name: Validate embedded app
         run: |
           test -s app/src/main/assets/index.html
-          for name in printer-manager.js inventory-history-export.js inventory-low-stock-filter.js inventory-serial-imei-export.js inventory-serial-imei-viewer.js inventory-product-editor.js inventory-history-viewer.js inventory-history-filtered-export.js checkout-cart-line-controls.js settings-printer-summary.js settings-general.js printer-auto-print.js printer-diagnostics.js reports-date-range-fix.js reports-csv-export.js users-permissions.js yesh-invoice-health-check.js payment-safety-guard.js backup-restore-safety.js; do
+          for name in printer-manager.js inventory-history-export.js inventory-low-stock-filter.js inventory-serial-imei-export.js inventory-serial-imei-viewer.js inventory-product-editor.js inventory-history-viewer.js inventory-history-filtered-export.js checkout-cart-line-controls.js settings-printer-summary.js settings-general.js printer-auto-print.js printer-diagnostics.js printer-settings-compat.js reports-date-range-fix.js reports-csv-export.js users-permissions.js yesh-invoice-health-check.js payment-safety-guard.js backup-restore-safety.js; do
             test -s "app/src/main/assets/$name"
             node --check "app/src/main/assets/$name"
           done
@@ -69,6 +69,7 @@ jobs:
           grep -Fq 'settings-general.js' app/src/main/assets/index.html
           grep -Fq 'printer-auto-print.js' app/src/main/assets/index.html
           grep -Fq 'printer-diagnostics.js' app/src/main/assets/index.html
+          grep -Fq 'printer-settings-compat.js' app/src/main/assets/index.html
           grep -Fq 'reports-date-range-fix.js' app/src/main/assets/index.html
           grep -Fq 'reports-csv-export.js' app/src/main/assets/index.html
           grep -Fq 'users-permissions.js' app/src/main/assets/index.html
@@ -90,7 +91,7 @@ jobs:
           "$APKSIGNER" verify --verbose "$APK"
           unzip -p "$APK" assets/index.html > /tmp/index.html
           test -s /tmp/index.html
-          for name in printer-manager.js inventory-history-export.js inventory-low-stock-filter.js inventory-serial-imei-export.js inventory-serial-imei-viewer.js inventory-product-editor.js inventory-history-viewer.js inventory-history-filtered-export.js checkout-cart-line-controls.js settings-printer-summary.js settings-general.js printer-auto-print.js printer-diagnostics.js reports-date-range-fix.js reports-csv-export.js users-permissions.js yesh-invoice-health-check.js payment-safety-guard.js backup-restore-safety.js; do
+          for name in printer-manager.js inventory-history-export.js inventory-low-stock-filter.js inventory-serial-imei-export.js inventory-serial-imei-viewer.js inventory-product-editor.js inventory-history-viewer.js inventory-history-filtered-export.js checkout-cart-line-controls.js settings-printer-summary.js settings-general.js printer-auto-print.js printer-diagnostics.js printer-settings-compat.js reports-date-range-fix.js reports-csv-export.js users-permissions.js yesh-invoice-health-check.js payment-safety-guard.js backup-restore-safety.js; do
             unzip -p "$APK" "assets/$name" > "/tmp/$name"
             test -s "/tmp/$name"
             node --check "/tmp/$name"
