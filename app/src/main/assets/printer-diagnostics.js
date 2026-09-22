@@ -7,21 +7,26 @@
     if(!s) return null;
     const id=String(s.defaultPrinterId||'').trim();
     if(!id) return null;
-    return (s.printers||[]).find(p=>String(p?.id||'').trim()===id||String(p?.address||'').trim()===id)||null;
+    const printer=(s.printers||[]).find(p=>String(p?.id||'').trim()===id||String(p?.address||'').trim()===id)||null;
+    if(!printer) return null;
+    return { printer, configuredTarget:id };
   }
-  function printerTarget(p){
-    if(!p) return '';
+  function printerTarget(selection){
+    if(!selection) return '';
+    const p=selection.printer||selection;
+    const configured=String(selection.configuredTarget||'').trim();
+    if(configured && (String(p.id||'').trim()===configured || String(p.address||'').trim()===configured)) return configured;
     return String(p.id||p.address||p.name||'').trim();
   }
   function diagnostics(){
-    const p=selectedPrinter();
+    const selection=selectedPrinter();
     const out=document.getElementById('mfixPrinterDiagnostics');
     if(!out) return;
-    if(!p){ out.innerHTML='<div class="muted" style="font-size:12px">לא נבחרה מדפסת ברירת מחדל.</div>'; return; }
+    if(!selection){ out.innerHTML='<div class="muted" style="font-size:12px">לא נבחרה מדפסת ברירת מחדל.</div>'; return; }
     if(!window.AndroidPrinter || typeof AndroidPrinter.getPrinterCapabilities!=='function'){
       out.innerHTML='<div class="pill amber">אין גשר Android פעיל — לא ניתן לאמת חיבור פיזי.</div>'; return;
     }
-    const target=printerTarget(p);
+    const target=printerTarget(selection);
     if(!target){ out.innerHTML='<div class="pill red">למדפסת שנבחרה אין מזהה חיבור תקין.</div>'; return; }
     let raw='';
     try{ raw=AndroidPrinter.getPrinterCapabilities(target); }catch(e){ out.innerHTML='<div class="pill red">שגיאת בדיקה: '+esc(e.message||e)+'</div>'; return; }
