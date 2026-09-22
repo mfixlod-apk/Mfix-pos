@@ -5,7 +5,9 @@
   function selectedPrinter(){
     const s=window.STATE&&STATE.settings;
     if(!s) return null;
-    return (s.printers||[]).find(p=>p.id===s.defaultPrinterId)||null;
+    const id=String(s.defaultPrinterId||'').trim();
+    if(!id) return null;
+    return (s.printers||[]).find(p=>String(p?.id||'').trim()===id||String(p?.address||'').trim()===id)||null;
   }
   function printerTarget(p){
     if(!p) return '';
