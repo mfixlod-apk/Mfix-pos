@@ -1,10 +1,12 @@
 (()=>{
-  if(window.__MFIX_YI_PAYLOAD_VALIDATOR_110__) return;
-  window.__MFIX_YI_PAYLOAD_VALIDATOR_110__=1;
+  if(window.__MFIX_YI_PAYLOAD_VALIDATOR_120__) return;
+  window.__MFIX_YI_PAYLOAD_VALIDATOR_120__=1;
   const esc=s=>String(s??'').replace(/[&<>\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[c]));
+  const money=n=>Number.isFinite(n)?n.toLocaleString('he-IL',{minimumFractionDigits:2,maximumFractionDigits:2}):'—';
   function validate(){
     const cart=Array.isArray(window.STATE&&STATE.cart)?STATE.cart:[];
     const issues=[];
+    let total=0;
     if(!cart.length) issues.push('העגלה ריקה');
     cart.forEach((p,i)=>{
       const name=String(p&&p.name||'').trim();
@@ -13,10 +15,16 @@
       if(!name) issues.push('פריט '+(i+1)+': חסר שם מוצר');
       if(!Number.isFinite(qty)||qty<=0) issues.push((name||'פריט '+(i+1))+': כמות לא תקינה');
       if(!Number.isFinite(price)||price<0) issues.push((name||'פריט '+(i+1))+': מחיר לא תקין');
+      if(Number.isFinite(qty)&&qty>0&&Number.isFinite(price)&&price>=0){
+        const line=qty*price;
+        if(!Number.isFinite(line)||line<0) issues.push((name||'פריט '+(i+1))+': סכום שורה לא תקין');
+        else total+=line;
+      }
     });
+    if(!Number.isFinite(total)||total<0) issues.push('סה״כ העסקה אינו תקין');
     const customerName=String(window.STATE&&STATE.docCustomerName||'').trim();
     const customerPhone=String(window.STATE&&STATE.docCustomerPhone||'').trim();
-    return {ok:issues.length===0,issues,count:cart.length,customerName,customerPhone};
+    return {ok:issues.length===0,issues,count:cart.length,customerName,customerPhone,total};
   }
   function showIssues(r){
     const text=r.issues&&r.issues.length?r.issues.join('\n'):'נתוני המכירה אינם תקינים';
@@ -50,7 +58,7 @@
     }
     const title='🧾 בדיקת נתוני העברה ליש חשבונית';
     if(r.ok){
-      box.innerHTML='<div style="font-weight:900;margin-bottom:7px">'+title+'</div><div style="color:#16a34a;font-size:12px">✓ הנתונים הבסיסיים תקינים · '+r.count+' פריטים'+(r.customerName?' · לקוח: '+esc(r.customerName):'')+'</div><button type="button" id="mfix-yi-payload-check" style="margin-top:8px;width:100%;padding:9px;border:0;border-radius:9px;background:#2563eb;color:#fff;font-weight:900">בדוק שוב</button>';
+      box.innerHTML='<div style="font-weight:900;margin-bottom:7px">'+title+'</div><div style="color:#16a34a;font-size:12px">✓ הנתונים הבסיסיים וחשבון השורות תקינים · '+r.count+' פריטים · סה״כ '+money(r.total)+' ₪'+(r.customerName?' · לקוח: '+esc(r.customerName):'')+'</div><button type="button" id="mfix-yi-payload-check" style="margin-top:8px;width:100%;padding:9px;border:0;border-radius:9px;background:#2563eb;color:#fff;font-weight:900">בדוק שוב</button>';
     }else{
       box.innerHTML='<div style="font-weight:900;margin-bottom:7px">'+title+'</div><div style="color:#dc2626;font-size:12px">✕ '+r.issues.map(esc).join('<br>')+'</div><button type="button" id="mfix-yi-payload-check" style="margin-top:8px;width:100%;padding:9px;border:0;border-radius:9px;background:#2563eb;color:#fff;font-weight:900">בדוק שוב</button>';
     }
