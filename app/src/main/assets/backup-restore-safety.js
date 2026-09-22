@@ -6,6 +6,16 @@
 (function(){
   'use strict';
 
+  function canRestore(){
+    try{
+      if(window.MFIXUsers && typeof window.MFIXUsers.can==='function'){
+        return !!window.MFIXUsers.can('backup');
+      }
+    }catch(_){}
+    // Keep compatibility with installations where the users module is not loaded.
+    return true;
+  }
+
   function install(){
     if(typeof window.importBackup!=='function' || typeof window.saveKey!=='function') return false;
     if(window.__mfixBackupRestoreSafetyInstalled) return true;
@@ -14,6 +24,14 @@
     const originalPersist=window.persist;
 
     window.importBackup=function(evt){
+      if(!canRestore()){
+        try{
+          if(typeof window.toast==='function') window.toast('אין הרשאה לשחזור גיבוי','err');
+          else alert('אין הרשאה לשחזור גיבוי');
+        }catch(_){}
+        return false;
+      }
+
       const directPersist=async function(part){
         const directMap={settings:'settings',products:'products',customers:'customers',sales:'sales',repairs:'repairs'};
         if(directMap[part]){
