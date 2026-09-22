@@ -39,8 +39,7 @@
   function cartIssues(){
     var cart=window.STATE&&Array.isArray(window.STATE.cart)?window.STATE.cart:null;
     if(!cart)return [];
-    var totals={};
-    var issues=[];
+    var totals={},seen={},issues=[];
     for(var i=0;i<cart.length;i++){
       var key=itemKey(cart[i]);
       if(!key)continue;
@@ -49,9 +48,10 @@
     }
     for(var j=0;j<cart.length;j++){
       var item=cart[j],key=itemKey(item),s=stockFor(item);
-      if(s===null||!key)continue;
+      if(s===null||!key||seen[key])continue;
       var q=Math.max(1,Math.floor(Number(item.qty||1))),requested=totals[key]||q;
       if(s<requested){
+        seen[key]=true;
         issues.push({item:item,available:s,requested:requested});
       }
     }
@@ -72,13 +72,20 @@
     return true;
   }
   function guard(){
-    // Do not silently delete or reduce cart lines. Stock validation belongs at checkout,
-    // while the cart must remain editable so the cashier can decide what to remove.
-    if(typeof window.saveState==='function'&&window.STATE&&window.STATE.cart)window.STATE.cart;
+    // Never silently delete or reduce cart lines. Stock validation belongs at checkout.
   }
   function checkoutButton(el){
+    if(el&&el.hasAttribute&&el.hasAttribute('data-stock-guard-ignore'))return false;
     var t=String(el&&el.innerText||el&&el.value||'').trim();
     return /תשלום|סיום|מכירה|חשבונית|checkout|pay/i.test(t);
+  }
+  function block(e){
+    if(!validate()){
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      return true;
+    }
+    return false;
   }
   function installCheckoutGuard(){
     if(window.__mfixCheckoutGuardClicks)return;
@@ -86,10 +93,14 @@
     document.addEventListener('click',function(e){
       var el=e.target&&e.target.closest?e.target.closest('button,a,[role="button"],input[type="button"],input[type="submit"]'):null;
       if(!el||!checkoutButton(el))return;
-      if(!validate()){
-        e.preventDefault();
-        e.stopImmediatePropagation();
-      }
+      block(e);
+    },true);
+    document.addEventListener('submit',function(e){
+      var form=e.target;
+      if(!form)return;
+      var submit=form.querySelector&&form.querySelector('button[type="submit"],input[type="submit"]');
+      var label=submit||form;
+      if(checkoutButton(label))block(e);
     },true);
   }
   window.mfixCheckoutStockGuard={guard:guard,stockFor:stockFor,validate:validate,cartIssues:cartIssues};
