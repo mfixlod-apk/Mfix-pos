@@ -7,6 +7,10 @@
     if(!s) return null;
     return (s.printers||[]).find(p=>p.id===s.defaultPrinterId)||null;
   }
+  function printerTarget(p){
+    if(!p) return '';
+    return String(p.id||p.address||p.name||'').trim();
+  }
   function diagnostics(){
     const p=selectedPrinter();
     const out=document.getElementById('mfixPrinterDiagnostics');
@@ -15,8 +19,10 @@
     if(!window.AndroidPrinter || typeof AndroidPrinter.getPrinterCapabilities!=='function'){
       out.innerHTML='<div class="pill amber">אין גשר Android פעיל — לא ניתן לאמת חיבור פיזי.</div>'; return;
     }
+    const target=printerTarget(p);
+    if(!target){ out.innerHTML='<div class="pill red">למדפסת שנבחרה אין מזהה חיבור תקין.</div>'; return; }
     let raw='';
-    try{ raw=AndroidPrinter.getPrinterCapabilities(p.address||''); }catch(e){ out.innerHTML='<div class="pill red">שגיאת בדיקה: '+esc(e.message||e)+'</div>'; return; }
+    try{ raw=AndroidPrinter.getPrinterCapabilities(target); }catch(e){ out.innerHTML='<div class="pill red">שגיאת בדיקה: '+esc(e.message||e)+'</div>'; return; }
     let d={}; try{ d=JSON.parse(raw||'{}'); }catch(e){ out.innerHTML='<div class="pill red">תשובת אבחון לא תקינה.</div>'; return; }
     if(!d.connected){ out.innerHTML='<div class="pill red">✖ המדפסת שנבחרה אינה מחוברת כרגע.</div>'; return; }
     const items=[];
@@ -26,7 +32,7 @@
     items.push(d.escpos?'<span class="pill green">ESC/POS ✔</span>':'<span class="pill red">ESC/POS ✖</span>');
     items.push(d.cashDrawerPulse?'<span class="pill green">מגירת מזומן ✔</span>':'<span class="pill red">מגירת מזומן ✖</span>');
     out.innerHTML='<div style="display:flex;gap:6px;flex-wrap:wrap">'+items.join('')+'</div>'+
-      '<div class="muted" style="font-size:11px;margin-top:6px;direction:ltr">'+esc(d.deviceName||p.address||'')+' | VID '+esc(d.vendorId)+' / PID '+esc(d.productId)+'</div>';
+      '<div class="muted" style="font-size:11px;margin-top:6px;direction:ltr">'+esc(d.deviceName||target)+' | VID '+esc(d.vendorId)+' / PID '+esc(d.productId)+'</div>';
   }
   function mount(){
     const cards=[...document.querySelectorAll('.card')];
