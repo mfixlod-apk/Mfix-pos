@@ -1,15 +1,19 @@
 (function(){
   if(window.__mfixCheckoutStockGuard)return;
   window.__mfixCheckoutStockGuard=true;
-  function stockFor(item){
-    var products=window.STATE&&Array.isArray(window.STATE.products)?window.STATE.products:[];
+  function products(){return window.STATE&&Array.isArray(window.STATE.products)?window.STATE.products:[];}
+  function productFor(item){
+    var list=products();
     var id=String(item&&item.productId!=null?item.productId:'');
     var barcode=String(item&&item.barcode!=null?item.barcode:'');
-    var p=products.find(function(x){
+    return list.find(function(x){
       var pid=String(x&&((x.id!=null?x.id:(x.ID!=null?x.ID:x.Id))||''));
       var pb=String(x&&((x.barcode!=null?x.barcode:(x.Barcode!=null?x.Barcode:''))||''));
       return (id&&pid===id)||(barcode&&pb===barcode);
-    });
+    })||null;
+  }
+  function stockFor(item){
+    var p=productFor(item);
     if(!p)return null;
     var keys=['stock','Stock','quantity','Quantity','qty','Qty','inventory','Inventory'];
     for(var i=0;i<keys.length;i++){
@@ -21,6 +25,13 @@
     return null;
   }
   function itemKey(item){
+    var p=productFor(item);
+    if(p){
+      var pid=p.id!=null?p.id:(p.ID!=null?p.ID:p.Id);
+      if(pid!=null&&String(pid)!=='')return 'id:'+String(pid);
+      var pb=p.barcode!=null?p.barcode:(p.Barcode!=null?p.Barcode:'');
+      if(String(pb)!=='')return 'barcode:'+String(pb);
+    }
     if(item&&item.productId!=null&&String(item.productId)!=='')return 'id:'+String(item.productId);
     if(item&&item.barcode!=null&&String(item.barcode)!=='')return 'barcode:'+String(item.barcode);
     return null;
