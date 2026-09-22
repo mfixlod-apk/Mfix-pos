@@ -1,96 +1,25 @@
 /* MFIX Settings: editable store/receipt defaults with persistence fallback. */
 (function(){
   'use strict';
-
   const KEY = 'cp_settings';
+  const PRINTER_KEY = 'mfix_printer_settings_v1';
   const getState = () => (typeof STATE !== 'undefined' && STATE) ? STATE : null;
   const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const settings = () => {
-    const s = getState();
-    if(!s) return {};
-    if(!s.settings || typeof s.settings !== 'object') s.settings = {};
-    return s.settings;
-  };
-
-  async function persist(){
-    const value = JSON.stringify(settings());
-    let saved = false;
-    try{
-      if(window.storage && typeof window.storage.set === 'function'){
-        await window.storage.set(KEY, value);
-        saved = true;
-      }
-    }catch(_){ }
-    try{
-      localStorage.setItem(KEY, value);
-      saved = true;
-    }catch(_){ }
-    try{
-      if(typeof window.persist === 'function'){
-        const result = window.persist('settings');
-        if(result && typeof result.then === 'function') await result;
-        saved = true;
-      }
-    }catch(_){ }
-    return saved;
-  }
-
+  const settings = () => { const s=getState(); if(!s) return {}; if(!s.settings || typeof s.settings !== 'object') s.settings={}; return s.settings; };
+  const printerSettings = () => { try{ const v=JSON.parse(localStorage.getItem(PRINTER_KEY)||'{}'); return v&&typeof v==='object'?v:{}; }catch(_){ return {}; } };
+  const savePrinterSettings = (patch) => { const p=printerSettings(); Object.assign(p,patch||{}); try{localStorage.setItem(PRINTER_KEY,JSON.stringify(p));}catch(_){ } const s=settings(); if(Object.prototype.hasOwnProperty.call(patch||{},'autoPrint')) s.printerAutoPrint=!!p.autoPrint; if(Object.prototype.hasOwnProperty.call(patch||{},'drawer')) s.printerAutoDrawer=!!p.drawer; if(Object.prototype.hasOwnProperty.call(patch||{},'paperMode')) s.printerPaperMode=p.paperMode; };
+  async function persist(){ const value=JSON.stringify(settings()); let saved=false; try{if(window.storage&&typeof window.storage.set==='function'){await window.storage.set(KEY,value);saved=true;}}catch(_){} try{localStorage.setItem(KEY,value);saved=true;}catch(_){} try{if(typeof window.persist==='function'){const r=window.persist('settings');if(r&&typeof r.then==='function')await r;saved=true;}}catch(_){} return saved; }
   function render(){
-    const view = document.getElementById('view-settings');
-    if(!view || view.querySelector('[data-mfix-general-settings]')) return;
-    const s = settings();
-    const card = document.createElement('div');
-    card.className = 'card';
-    card.dataset.mfixGeneralSettings = '1';
-    card.style.marginTop = '12px';
-    card.innerHTML = `
-      <div class="section-title">⚙️ הגדרות כלליות של העסק</div>
-      <div class="muted" style="font-size:12px;margin-bottom:12px">פרטי העסק והטקסט שיוכלו לשמש במסמכי הקופה ובהדפסה.</div>
-      <div class="grid2">
-        <div class="field"><label class="flabel">שם העסק</label><input class="input" data-mfix-setting="businessName" value="${esc(s.businessName || s.storeName || '')}" placeholder="Mfix"></div>
-        <div class="field"><label class="flabel">טלפון העסק</label><input class="input" data-mfix-setting="businessPhone" value="${esc(s.businessPhone || s.phone || '')}" placeholder="050-0000000"></div>
-        <div class="field"><label class="flabel">אימייל העסק</label><input class="input" type="email" data-mfix-setting="businessEmail" value="${esc(s.businessEmail || s.email || '')}" placeholder="office@example.com" autocomplete="email"></div>
-        <div class="field"><label class="flabel">מספר עוסק / חברה</label><input class="input" data-mfix-setting="businessTaxId" value="${esc(s.businessTaxId || s.taxId || '')}" placeholder="ע.מ. / ח.פ."></div>
-      </div>
-      <div class="field"><label class="flabel">כתובת העסק</label><input class="input" data-mfix-setting="businessAddress" value="${esc(s.businessAddress || s.address || '')}" placeholder="כתובת החנות"></div>
-      <div class="field"><label class="flabel">שורת תחתית למסמך</label><textarea class="input" rows="2" data-mfix-setting="receiptFooter" placeholder="תודה שקניתם ב-Mfix">${esc(s.receiptFooter || '')}</textarea></div>
-      <div style="display:flex;gap:8px;justify-content:flex-start;flex-wrap:wrap">
-        <button class="btn btn-primary" type="button" data-mfix-save-settings>💾 שמור הגדרות</button>
-        <button class="btn btn-ghost" type="button" data-mfix-reset-settings>↩️ בטל שינויים</button>
-      </div>`;
-
-    card.addEventListener('click', async (e) => {
-      if(e.target.closest('[data-mfix-save-settings]')){
-        card.querySelectorAll('[data-mfix-setting]').forEach(input => {
-          const key = input.dataset.mfixSetting;
-          settings()[key] = input.value;
-        });
-        const ok = await persist();
-        try{ if(typeof toast === 'function') toast(ok ? 'ההגדרות נשמרו' : 'ההגדרות עודכנו אך לא ניתן היה לשמור', ok ? 'ok' : 'err'); }catch(_){ }
-        return;
-      }
-      if(e.target.closest('[data-mfix-reset-settings]')){
-        mount();
-      }
-    });
+    const view=document.getElementById('view-settings'); if(!view||view.querySelector('[data-mfix-general-settings]')) return;
+    const s=settings(), p=printerSettings(); const autoPrint=p.autoPrint!==undefined?p.autoPrint===true:s.printerAutoPrint!==false; const drawer=p.drawer===true; const paperMode=String(p.paperMode||s.printerPaperMode||'80MM').toUpperCase()==='58MM'?'58MM':'80MM';
+    const card=document.createElement('div'); card.className='card'; card.dataset.mfixGeneralSettings='1'; card.style.marginTop='12px';
+    card.innerHTML=`<div class="section-title">⚙️ הגדרות כלליות של העסק</div><div class="muted" style="font-size:12px;margin-bottom:12px">פרטי העסק והטקסט שיוכלו לשמש במסמכי הקופה ובהדפסה.</div><div class="grid2"><div class="field"><label class="flabel">שם העסק</label><input class="input" data-mfix-setting="businessName" value="${esc(s.businessName||s.storeName||'')}" placeholder="Mfix"></div><div class="field"><label class="flabel">טלפון העסק</label><input class="input" data-mfix-setting="businessPhone" value="${esc(s.businessPhone||s.phone||'')}" placeholder="050-0000000"></div><div class="field"><label class="flabel">אימייל העסק</label><input class="input" type="email" data-mfix-setting="businessEmail" value="${esc(s.businessEmail||s.email||'')}" placeholder="office@example.com" autocomplete="email"></div><div class="field"><label class="flabel">מספר עוסק / חברה</label><input class="input" data-mfix-setting="businessTaxId" value="${esc(s.businessTaxId||s.taxId||'')}" placeholder="ע.מ. / ח.פ."></div></div><div class="field"><label class="flabel">כתובת העסק</label><input class="input" data-mfix-setting="businessAddress" value="${esc(s.businessAddress||s.address||'')}" placeholder="כתובת החנות"></div><div class="field"><label class="flabel">שורת תחתית למסמך</label><textarea class="input" rows="2" data-mfix-setting="receiptFooter" placeholder="תודה שקניתם ב-Mfix">${esc(s.receiptFooter||'')}</textarea></div><div style="margin-top:12px;padding:12px;border:1px solid #e2e7ef;border-radius:12px"><div class="section-title" style="margin-bottom:6px">🖨️ הגדרות הדפסה</div><div class="muted" style="font-size:12px;margin-bottom:10px">האפשרויות מסונכרנות עם מנהל המדפסות והמסלול הנתמך של MFIX.</div><label style="display:flex;align-items:center;gap:9px;margin-bottom:9px;cursor:pointer"><input type="checkbox" data-mfix-printer="autoPrint" ${autoPrint?'checked':''} style="transform:scale(1.2)"><span>הדפס קבלה אוטומטית לאחר מכירה</span></label><label style="display:flex;align-items:center;gap:9px;margin-bottom:9px;cursor:pointer"><input type="checkbox" data-mfix-printer="drawer" ${drawer?'checked':''} style="transform:scale(1.2)"><span>פתיחת מגירה אוטומטית במכירת מזומן</span></label><div class="field" style="margin-bottom:9px"><label class="flabel">רוחב נייר</label><select class="input" data-mfix-printer="paperMode"><option value="80MM" ${paperMode==='80MM'?'selected':''}>80 מ״מ</option><option value="58MM" ${paperMode==='58MM'?'selected':''}>58 מ״מ</option></select></div><button class="btn btn-ghost" type="button" data-mfix-open-printers>🖨️ פתח מנהל מדפסות</button></div><div style="display:flex;gap:8px;justify-content:flex-start;flex-wrap:wrap;margin-top:12px"><button class="btn btn-primary" type="button" data-mfix-save-settings>💾 שמור הגדרות</button><button class="btn btn-ghost" type="button" data-mfix-reset-settings>↩️ בטל שינויים</button></div>`;
+    card.addEventListener('change',(e)=>{const input=e.target&&e.target.closest?e.target.closest('[data-mfix-printer]'):null;if(!input)return;const key=input.dataset.mfixPrinter;const value=key==='autoPrint'||key==='drawer'?input.checked:input.value;savePrinterSettings({[key]:value});persist();});
+    card.addEventListener('click',async(e)=>{if(e.target.closest('[data-mfix-open-printers]')){try{if(typeof window.openPrinterManager==='function')window.openPrinterManager();else if(document.getElementById('mfixPrinterManagerButton'))document.getElementById('mfixPrinterManagerButton').click();else if(typeof window.toast==='function')window.toast('מנהל המדפסות אינו זמין בגרסה זו','err');}catch(_){}return;} if(e.target.closest('[data-mfix-save-settings]')){card.querySelectorAll('[data-mfix-setting]').forEach(input=>{settings()[input.dataset.mfixSetting]=input.value;});const ok=await persist();try{if(typeof toast==='function')toast(ok?'ההגדרות נשמרו':'ההגדרות עודכנו אך לא ניתן היה לשמור',ok?'ok':'err');}catch(_){}return;} if(e.target.closest('[data-mfix-reset-settings]'))mount();});
     view.appendChild(card);
   }
-
-  function mount(){
-    const view = document.getElementById('view-settings');
-    if(!view) return;
-    const existing = view.querySelector('[data-mfix-general-settings]');
-    if(existing) existing.remove();
-    render();
-  }
-
-  document.addEventListener('click', (e) => {
-    const tab = e.target && e.target.closest ? e.target.closest('[data-tab="settings"], [data-view="settings"], .navtab') : null;
-    if(tab) setTimeout(mount, 40);
-  });
-  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount); else mount();
-  setInterval(() => {
-    const view = document.getElementById('view-settings');
-    if(view && view.classList.contains('active')) render();
-  }, 1800);
+  function mount(){const view=document.getElementById('view-settings');if(!view)return;const existing=view.querySelector('[data-mfix-general-settings]');if(existing)existing.remove();render();}
+  document.addEventListener('click',(e)=>{const tab=e.target&&e.target.closest?e.target.closest('[data-tab="settings"], [data-view="settings"], .navtab'):null;if(tab)setTimeout(mount,40);});
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount);else mount();
+  setInterval(()=>{const view=document.getElementById('view-settings');if(view&&view.classList.contains('active'))render();},1800);
 })();
