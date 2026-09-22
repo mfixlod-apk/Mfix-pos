@@ -1,4 +1,4 @@
-/* MFIX printer diagnostics: expose only capabilities reported by the native Android bridge. */
+/* MFIX printer diagnostics: expose only capabilities evidenced by the native Android bridge. */
 (function(){
   'use strict';
   function esc(s){ return String(s==null?'':s).replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c])); }
@@ -18,28 +18,36 @@
     if(configured && (String(p.id||'').trim()===configured || String(p.address||'').trim()===configured)) return configured;
     return String(p.id||p.address||p.name||'').trim();
   }
+  function capabilityRows(d){
+    const rows=[];
+    if(d.authorized) rows.push('<span class="pill green">✔ הרשאת USB קיימת</span>');
+    else rows.push('<span class="pill amber">⚠ נדרשת הרשאת USB</span>');
+    const bulk=Number(d.bulkOutEndpoints||0);
+    rows.push(bulk>0?'<span class="pill green">USB Bulk OUT ✔ ('+bulk+')</span>':'<span class="pill red">USB Bulk OUT ✖</span>');
+    if(d.candidateType) rows.push('<span class="pill blue">'+esc(d.candidateType)+'</span>');
+    rows.push('<span class="pill gray">ESC/POS / Raster: מצב הדפסה נתמך באפליקציה — לא אומת מול הדגם</span>');
+    return rows;
+  }
   function diagnostics(){
     const selection=selectedPrinter();
     const out=document.getElementById('mfixPrinterDiagnostics');
     if(!out) return;
     if(!selection){ out.innerHTML='<div class="muted" style="font-size:12px">לא נבחרה מדפסת ברירת מחדל.</div>'; return; }
-    if(!window.AndroidPrinter || typeof AndroidPrinter.getPrinterCapabilities!=='function'){
-      out.innerHTML='<div class="pill amber">אין גשר Android פעיל — לא ניתן לאמת חיבור פיזי.</div>'; return;
+    if(!window.AndroidPrinter || typeof AndroidPrinter.getUsbPrinterDiagnostics!=='function'){
+      out.innerHTML='<div class="pill amber">אין גשר Android מלא — לא ניתן לאמת חיבור USB בפועל.</div>'; return;
     }
     const target=printerTarget(selection);
     if(!target){ out.innerHTML='<div class="pill red">למדפסת שנבחרה אין מזהה חיבור תקין.</div>'; return; }
     let raw='';
-    try{ raw=AndroidPrinter.getPrinterCapabilities(target); }catch(e){ out.innerHTML='<div class="pill red">שגיאת בדיקה: '+esc(e.message||e)+'</div>'; return; }
+    try{ raw=AndroidPrinter.getUsbPrinterDiagnostics(target); }catch(e){ out.innerHTML='<div class="pill red">שגיאת בדיקה: '+esc(e.message||e)+'</div>'; return; }
     let d={}; try{ d=JSON.parse(raw||'{}'); }catch(e){ out.innerHTML='<div class="pill red">תשובת אבחון לא תקינה.</div>'; return; }
     if(!d.connected){ out.innerHTML='<div class="pill red">✖ המדפסת שנבחרה אינה מחוברת כרגע.</div>'; return; }
-    const items=[];
-    items.push(d.authorized?'<span class="pill green">✔ הרשאת USB קיימת</span>':'<span class="pill amber">⚠ נדרשת הרשאת USB</span>');
-    if(d.transport) items.push('<span class="pill blue">'+esc(d.transport)+'</span>');
-    items.push(d.raster?'<span class="pill green">Raster ✔</span>':'<span class="pill red">Raster ✖</span>');
-    items.push(d.escpos?'<span class="pill green">ESC/POS ✔</span>':'<span class="pill red">ESC/POS ✖</span>');
-    items.push(d.cashDrawerPulse?'<span class="pill green">מגירת מזומן ✔</span>':'<span class="pill red">מגירת מזומן ✖</span>');
+    const items=capabilityRows(d);
+    const interfaces=Array.isArray(d.interfaces)?d.interfaces:[];
+    const detail=interfaces.map(i=>'IF '+esc(i.index)+': class '+esc(i.class)+' / sub '+esc(i.subclass)+' / bulk OUT '+esc(i.bulkOutEndpoints)).join(' | ');
     out.innerHTML='<div style="display:flex;gap:6px;flex-wrap:wrap">'+items.join('')+'</div>'+
-      '<div class="muted" style="font-size:11px;margin-top:6px;direction:ltr">'+esc(d.deviceName||target)+' | VID '+esc(d.vendorId)+' / PID '+esc(d.productId)+'</div>';
+      '<div class="muted" style="font-size:11px;margin-top:6px;direction:ltr">'+esc(d.deviceName||target)+' | VID '+esc(d.vendorId)+' / PID '+esc(d.productId)+'</div>'+
+      (detail?'<div class="muted" style="font-size:10.5px;margin-top:4px;direction:ltr">'+detail+'</div>':'');
   }
   function mount(){
     const cards=[...document.querySelectorAll('.card')];
