@@ -1,8 +1,8 @@
 (()=>{
-  if(window.__MFIX_PAYMENT_SAFETY_1701__)return;
-  window.__MFIX_PAYMENT_SAFETY_1701__=1;
+  if(window.__MFIX_PAYMENT_SAFETY_1801__)return;
+  window.__MFIX_PAYMENT_SAFETY_1801__=1;
 
-  const KEY='mfixPaymentAttempt1701';
+  const KEY='mfixPaymentAttempt1801';
   const LOCK_MS=3500;
   const STALE_MS=60000;
   let lastKey='',lastAt=0;
@@ -38,8 +38,18 @@
     if(!(amount>0)){toast('אין סכום לתשלום — לא הופעל אמצעי תשלום',2200);return false}
     const now=Date.now(),key=kind+':'+amount.toFixed(2);
     if(key===lastKey&&now-lastAt<LOCK_MS){toast('התשלום כבר בתהליך — לחיצה כפולה נחסמה',1800);return false}
+    const previous=read();
+    if(previous&&previous.status==='started'&&previous.startedAt){
+      const age=now-Date.parse(previous.startedAt);
+      if(Number.isFinite(age)&&age<STALE_MS){
+        toast('כבר קיים תשלום בתהליך. יש להמתין לאישור או לכישלון לפני ניסיון נוסף.',3200);
+        return false;
+      }
+    }
     lastKey=key;lastAt=now;
-    try{sessionStorage.setItem(KEY,JSON.stringify({version:'17.0.1',method:kind,amount,startedAt:new Date().toISOString(),status:'started'}))}catch(_){}
+    const attempt={version:'18.0.1',method:kind,amount,startedAt:new Date().toISOString(),status:'started'};
+    if(previous&&previous.status==='stale')attempt.recoveredFrom=previous.startedAt||null;
+    try{sessionStorage.setItem(KEY,JSON.stringify(attempt))}catch(_){}
     return true;
   }
   function mark(status,extra={}){
@@ -97,5 +107,5 @@
   recoverStale();
   setInterval(recoverStale,10000);
 
-  window.MFIXPaymentSafety={version:'17.0.1',getAttempt:read,mark,recoverStale,clear:()=>{try{sessionStorage.removeItem(KEY)}catch(_){} }};
+  window.MFIXPaymentSafety={version:'18.0.1',getAttempt:read,mark,recoverStale,clear:()=>{try{sessionStorage.removeItem(KEY)}catch(_){} }};
 })();
