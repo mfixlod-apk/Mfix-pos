@@ -10,7 +10,9 @@
     const rows=[];
     state.products.forEach(p=>{
       if(!p || !p.trackSerial) return;
-      const items=Array.isArray(p.imeis)?p.imeis:[];
+      const items=[];
+      if(Array.isArray(p.imeis)) items.push(...p.imeis);
+      if(Array.isArray(p.serials)) items.push(...p.serials);
       items.forEach(item=>{
         const value=typeof item==='string'?item:(item?.value||item?.imei||item?.serial||'');
         if(!value) return;
