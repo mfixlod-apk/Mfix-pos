@@ -1,7 +1,7 @@
 (function(){
   'use strict';
-  if(window.__mfixAutoPrintHookLoadedV3) return;
-  window.__mfixAutoPrintHookLoadedV3=true;
+  if(window.__mfixAutoPrintHookLoadedV4) return;
+  window.__mfixAutoPrintHookLoadedV4=true;
   function settings(){
     try{return JSON.parse(localStorage.getItem('mfix_printer_settings_v1')||'{}');}catch(_){return {};}
   }
@@ -14,6 +14,10 @@
     return printers().find(p=>String(p.id)===id||String(p.name)===id)||null;
   }
   function wait(ms){return new Promise(r=>setTimeout(r,ms));}
+  function copyCount(s){
+    const n=Number(s&&s.copies);
+    return Number.isFinite(n)?Math.max(1,Math.min(5,Math.floor(n))):1;
+  }
   async function printLatestSale(before){
     const s=settings();
     if(s.autoPrint===false || s.printerAutoPrint===false) return;
@@ -40,8 +44,12 @@
     if(window.__mfixAutoPrintInFlight)return;
     window.__mfixAutoPrintInFlight=true;
     try{
+      const copies=copyCount(s);
       await wait(60);
-      await window.printDoc(sale.id);
+      for(let i=0;i<copies;i++){
+        await window.printDoc(sale.id);
+        if(i<copies-1) await wait(80);
+      }
       localStorage.setItem('mfix_last_auto_printed_sale_v1',id);
     }catch(e){
       console.error('[MFIX AUTO PRINT] supported USB receipt print failed',e);
@@ -51,8 +59,8 @@
     }
   }
   async function hook(){
-    if(typeof window.finalizeSale!=='function' || window.__mfixAutoPrintWrappedV3) return false;
-    window.__mfixAutoPrintWrappedV3=true;
+    if(typeof window.finalizeSale!=='function' || window.__mfixAutoPrintWrappedV4) return false;
+    window.__mfixAutoPrintWrappedV4=true;
     const original=window.finalizeSale;
     window.finalizeSale=async function(){
       const before=window.STATE&&Array.isArray(window.STATE.sales)?window.STATE.sales.length:-1;
