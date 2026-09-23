@@ -42,6 +42,7 @@
           const bundle={
             returns:window.STATE.returns||[],
             shifts:window.STATE.shifts||[],
+            currentShift:window.STATE.currentShift||null,
             giftCards:window.STATE.giftCards||[],
             preorders:window.STATE.preorders||[],
             auditLog:window.STATE.auditLog||[],
