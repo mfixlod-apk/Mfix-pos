@@ -20,7 +20,7 @@ jobs:
           from pathlib import Path
           html_path=Path('app/src/main/assets/index.html')
           html=html_path.read_text(encoding='utf-8')
-          for name in ('printer-manager.js','inventory-history-export.js','inventory-low-stock-filter.js','inventory-serial-imei-export.js','inventory-serial-imei-viewer.js','inventory-serial-imei-editor.js','inventory-product-editor.js','inventory-history-viewer.js','inventory-history-filtered-export.js','checkout-cart-line-controls.js','suspended-sales.js','settings-printer-summary.js','settings-general.js','settings-data-integrity.js','printer-auto-print.js','printer-diagnostics.js','printer-settings-compat.js','reports-date-range-fix.js','reports-csv-export.js','reports-print.js','reports-payment-breakdown.js','users-permissions.js','users-manager-safety.js','yesh-invoice-health-check.js','payment-safety-guard.js','payment-status.js','payment-attempt-history.js','backup-restore-safety.js','backup-restore-core.js'):
+          for name in ('printer-manager.js','inventory-history-export.js','inventory-low-stock-filter.js','inventory-serial-imei-export.js','inventory-serial-imei-viewer.js','inventory-serial-imei-editor.js','inventory-product-editor.js','inventory-history-viewer.js','inventory-history-filtered-export.js','checkout-cart-line-controls.js','suspended-sales.js','settings-printer-summary.js','settings-general.js','settings-data-integrity.js','printer-auto-print.js','printer-diagnostics.js','printer-settings-compat.js','reports-date-range-fix.js','reports-csv-export.js','reports-print.js','reports-payment-breakdown.js','reports-cashier-breakdown.js','users-permissions.js','users-manager-safety.js','yesh-invoice-health-check.js','payment-safety-guard.js','payment-status.js','payment-attempt-history.js','backup-restore-safety.js','backup-restore-core.js'):
               marker=f'<script src="{name}"></script>'
               if marker not in html:
                   html=html.replace('</body>', marker+'\n</body>', 1)
@@ -52,7 +52,7 @@ jobs:
       - name: Validate embedded app
         run: |
           test -s app/src/main/assets/index.html
-          for name in printer-manager.js inventory-history-export.js inventory-low-stock-filter.js inventory-serial-imei-export.js inventory-serial-imei-viewer.js inventory-serial-imei-editor.js inventory-product-editor.js inventory-history-viewer.js inventory-history-filtered-export.js checkout-cart-line-controls.js suspended-sales.js settings-printer-summary.js settings-general.js settings-data-integrity.js printer-auto-print.js printer-diagnostics.js printer-settings-compat.js reports-date-range-fix.js reports-csv-export.js reports-print.js reports-payment-breakdown.js users-permissions.js users-manager-safety.js yesh-invoice-health-check.js payment-safety-guard.js payment-status.js payment-attempt-history.js backup-restore-safety.js backup-restore-core.js; do
+          for name in printer-manager.js inventory-history-export.js inventory-low-stock-filter.js inventory-serial-imei-export.js inventory-serial-imei-viewer.js inventory-serial-imei-editor.js inventory-product-editor.js inventory-history-viewer.js inventory-history-filtered-export.js checkout-cart-line-controls.js suspended-sales.js settings-printer-summary.js settings-general.js settings-data-integrity.js printer-auto-print.js printer-diagnostics.js printer-settings-compat.js reports-date-range-fix.js reports-csv-export.js reports-print.js reports-payment-breakdown.js reports-cashier-breakdown.js users-permissions.js users-manager-safety.js yesh-invoice-health-check.js payment-safety-guard.js payment-status.js payment-attempt-history.js backup-restore-safety.js backup-restore-core.js; do
             test -s "app/src/main/assets/$name"
             node --check "app/src/main/assets/$name"
           done
@@ -77,6 +77,7 @@ jobs:
           grep -Fq 'reports-csv-export.js' app/src/main/assets/index.html
           grep -Fq 'reports-print.js' app/src/main/assets/index.html
           grep -Fq 'reports-payment-breakdown.js' app/src/main/assets/index.html
+          grep -Fq 'reports-cashier-breakdown.js' app/src/main/assets/index.html
           grep -Fq 'users-permissions.js' app/src/main/assets/index.html
           grep -Fq 'users-manager-safety.js' app/src/main/assets/index.html
           grep -Fq 'yesh-invoice-health-check.js' app/src/main/assets/index.html
@@ -100,7 +101,7 @@ jobs:
           "$APKSIGNER" verify --verbose "$APK"
           unzip -p "$APK" assets/index.html > /tmp/index.html
           test -s /tmp/index.html
-          for name in printer-manager.js inventory-history-export.js inventory-low-stock-filter.js inventory-serial-imei-export.js inventory-serial-imei-viewer.js inventory-serial-imei-editor.js inventory-product-editor.js inventory-history-viewer.js inventory-history-filtered-export.js checkout-cart-line-controls.js suspended-sales.js settings-printer-summary.js settings-general.js settings-data-integrity.js printer-auto-print.js printer-diagnostics.js printer-settings-compat.js reports-date-range-fix.js reports-csv-export.js reports-print.js reports-payment-breakdown.js users-permissions.js users-manager-safety.js yesh-invoice-health-check.js payment-safety-guard.js payment-status.js payment-attempt-history.js backup-restore-safety.js backup-restore-core.js; do
+          for name in printer-manager.js inventory-history-export.js inventory-low-stock-filter.js inventory-serial-imei-export.js inventory-serial-imei-viewer.js inventory-serial-imei-editor.js inventory-product-editor.js inventory-history-viewer.js inventory-history-filtered-export.js checkout-cart-line-controls.js suspended-sales.js settings-printer-summary.js settings-general.js settings-data-integrity.js printer-auto-print.js printer-diagnostics.js printer-settings-compat.js reports-date-range-fix.js reports-csv-export.js reports-print.js reports-payment-breakdown.js reports-cashier-breakdown.js users-permissions.js users-manager-safety.js yesh-invoice-health-check.js payment-safety-guard.js payment-status.js payment-attempt-history.js backup-restore-safety.js backup-restore-core.js; do
             unzip -p "$APK" "assets/$name" > "/tmp/$name"
             test -s "/tmp/$name"
             node --check "/tmp/$name"
