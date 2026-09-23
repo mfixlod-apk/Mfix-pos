@@ -56,7 +56,33 @@ jobs:
             test -s "app/src/main/assets/$name"
             node --check "app/src/main/assets/$name"
           done
+          grep -Fq 'printer-manager.js' app/src/main/assets/index.html
+          grep -Fq 'inventory-history-export.js' app/src/main/assets/index.html
+          grep -Fq 'inventory-low-stock-filter.js' app/src/main/assets/index.html
+          grep -Fq 'inventory-serial-imei-export.js' app/src/main/assets/index.html
+          grep -Fq 'inventory-serial-imei-viewer.js' app/src/main/assets/index.html
+          grep -Fq 'inventory-serial-imei-editor.js' app/src/main/assets/index.html
+          grep -Fq 'inventory-product-editor.js' app/src/main/assets/index.html
+          grep -Fq 'inventory-history-viewer.js' app/src/main/assets/index.html
+          grep -Fq 'inventory-history-filtered-export.js' app/src/main/assets/index.html
+          grep -Fq 'checkout-cart-line-controls.js' app/src/main/assets/index.html
+          grep -Fq 'suspended-sales.js' app/src/main/assets/index.html
+          grep -Fq 'settings-printer-summary.js' app/src/main/assets/index.html
+          grep -Fq 'settings-general.js' app/src/main/assets/index.html
+          grep -Fq 'settings-data-integrity.js' app/src/main/assets/index.html
+          grep -Fq 'printer-auto-print.js' app/src/main/assets/index.html
+          grep -Fq 'printer-diagnostics.js' app/src/main/assets/index.html
+          grep -Fq 'printer-settings-compat.js' app/src/main/assets/index.html
+          grep -Fq 'reports-date-range-fix.js' app/src/main/assets/index.html
+          grep -Fq 'reports-csv-export.js' app/src/main/assets/index.html
+          grep -Fq 'reports-print.js' app/src/main/assets/index.html
+          grep -Fq 'users-permissions.js' app/src/main/assets/index.html
           grep -Fq 'users-manager-safety.js' app/src/main/assets/index.html
+          grep -Fq 'yesh-invoice-health-check.js' app/src/main/assets/index.html
+          grep -Fq 'payment-safety-guard.js' app/src/main/assets/index.html
+          grep -Fq 'payment-status.js' app/src/main/assets/index.html
+          grep -Fq 'payment-attempt-history.js' app/src/main/assets/index.html
+          grep -Fq 'backup-restore-safety.js' app/src/main/assets/index.html
           python3 scripts/verify_release_invariants.py
 
       - name: Build Release APK
@@ -72,7 +98,7 @@ jobs:
           "$APKSIGNER" verify --verbose "$APK"
           unzip -p "$APK" assets/index.html > /tmp/index.html
           test -s /tmp/index.html
-          for name in users-permissions.js users-manager-safety.js; do
+          for name in printer-manager.js inventory-history-export.js inventory-low-stock-filter.js inventory-serial-imei-export.js inventory-serial-imei-viewer.js inventory-serial-imei-editor.js inventory-product-editor.js inventory-history-viewer.js inventory-history-filtered-export.js checkout-cart-line-controls.js suspended-sales.js settings-printer-summary.js settings-general.js settings-data-integrity.js printer-auto-print.js printer-diagnostics.js printer-settings-compat.js reports-date-range-fix.js reports-csv-export.js reports-print.js users-permissions.js users-manager-safety.js yesh-invoice-health-check.js payment-safety-guard.js payment-status.js payment-attempt-history.js backup-restore-safety.js; do
             unzip -p "$APK" "assets/$name" > "/tmp/$name"
             test -s "/tmp/$name"
             node --check "/tmp/$name"
