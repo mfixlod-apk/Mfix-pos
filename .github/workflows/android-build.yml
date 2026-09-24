@@ -51,11 +51,14 @@ jobs:
 
       - name: Validate embedded app
         run: |
+          set -euo pipefail
           test -s app/src/main/assets/index.html
           for name in printer-manager.js inventory-history-export.js inventory-low-stock-filter.js inventory-serial-imei-export.js inventory-serial-imei-viewer.js inventory-serial-imei-editor.js inventory-product-editor.js inventory-stock-adjustment.js inventory-history-viewer.js inventory-history-filtered-export.js checkout-cart-line-controls.js suspended-sales.js settings-printer-summary.js settings-general.js settings-data-integrity.js printer-auto-print.js printer-diagnostics.js printer-settings-compat.js reports-date-range-fix.js reports-csv-export.js reports-print.js reports-payment-breakdown.js reports-cashier-breakdown.js reports-gross-profit.js users-permissions.js users-manager-safety.js users-pin-lock.js yesh-invoice-health-check.js yesh-invoice-payload-validator.js yesh-invoice-outbox-manager.js payment-safety-guard.js payment-status.js payment-attempt-history.js payment-history-export.js backup-restore-safety.js backup-restore-core.js backup-integrity.js backup-restore-validator.js; do
+            echo "[MFIX VALIDATE] $name"
             test -s "app/src/main/assets/$name"
             node --check "app/src/main/assets/$name"
           done
+          echo "[MFIX VALIDATE] release invariants"
           grep -Fq 'backup-integrity.js' app/src/main/assets/index.html
           grep -Fq 'backup-restore-core.js' app/src/main/assets/index.html
           grep -Fq 'users-pin-lock.js' app/src/main/assets/index.html
@@ -67,6 +70,7 @@ jobs:
 
       - name: Verify APK
         run: |
+          set -euo pipefail
           APK="app/build/outputs/apk/release/app-release.apk"
           test -s "$APK"
           ls -lh "$APK"
