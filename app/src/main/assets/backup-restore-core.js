@@ -1,12 +1,12 @@
 (()=>{
   'use strict';
-  if(window.__MFIX_BACKUP_CORE_171__) return;
-  window.__MFIX_BACKUP_CORE_171__=true;
+  if(window.__MFIX_BACKUP_CORE_172__) return;
+  window.__MFIX_BACKUP_CORE_172__=true;
 
   const CORE_KEYS=['cp_settings','cp_products','cp_customers','cp_sales','cp_repairs','cp_misc'];
   const PREFIX=/^(mfix|MFIX)/;
   const FORMAT='MFIX-POS-BACKUP';
-  const VERSION='17.1.0';
+  const VERSION='17.2.0';
 
   const toastSafe=(msg)=>{try{if(typeof toast==='function')toast(msg,2200);else alert(msg)}catch(_){}};
   const isCoreKey=k=>CORE_KEYS.includes(String(k||''));
@@ -85,11 +85,9 @@
   }
 
   function clearKeys(storage,predicate){
-    try{
-      const keys=[];
-      for(let i=0;i<storage.length;i++){const k=storage.key(i);if(k&&predicate(k))keys.push(k)}
-      keys.forEach(k=>storage.removeItem(k));
-    }catch(_){}
+    const keys=[];
+    for(let i=0;i<storage.length;i++){const k=storage.key(i);if(k&&predicate(k))keys.push(k)}
+    keys.forEach(k=>storage.removeItem(k));
   }
 
   function writeStorageSnapshot(storage,snapshot,predicate){
@@ -105,6 +103,26 @@
     if(snapshot && Object.keys(snapshot).length)await chrome.storage.local.set(snapshot);
   }
 
+  function sameStorageSnapshot(actual,expected){
+    const a=Object.keys(actual||{}).sort();
+    const b=Object.keys(expected||{}).sort();
+    if(a.length!==b.length || a.some((k,i)=>k!==b[i]))return false;
+    return a.every(k=>JSON.stringify(actual[k])===JSON.stringify(expected[k]));
+  }
+
+  async function verifyRestoreSnapshot(expected){
+    const actual={
+      coreStorage:readStorage(localStorage,k=>isCoreKey(k)),
+      mfixStorage:readStorage(localStorage,isMfixKey),
+      sessionStorage:readStorage(sessionStorage,isMfixKey),
+      chromeStorage:await readChromeStorage()
+    };
+    for(const key of ['coreStorage','mfixStorage','sessionStorage','chromeStorage']){
+      if(!sameStorageSnapshot(actual[key],expected[key]||{}))throw new Error('אימות השחזור נכשל: '+key);
+    }
+    return true;
+  }
+
   async function restoreBackup(file){
     const text=await file.text();
     let d;
@@ -115,31 +133,37 @@
     const summary=`מוצרים ${Number(c.products||0)} · לקוחות ${Number(c.customers||0)} · מכירות ${Number(c.sales||0)} · תיקונים ${Number(c.repairs||0)}`;
     if(!confirm('שחזור גיבוי MFIX POS\n\n'+summary+'\n\nהנתונים הנוכחיים יוחלפו. להמשיך?'))return false;
 
-    // Capture the current dataset first so a failed write can be rolled back.
     const before={
       coreStorage:readStorage(localStorage,k=>isCoreKey(k)),
       mfixStorage:readStorage(localStorage,isMfixKey),
       sessionStorage:readStorage(sessionStorage,isMfixKey),
       chromeStorage:await readChromeStorage()
     };
+    const target={
+      coreStorage:d.coreStorage||{},
+      mfixStorage:d.mfixStorage||{},
+      sessionStorage:d.sessionStorage||{},
+      chromeStorage:d.chromeStorage||{}
+    };
 
     try{
-      writeStorageSnapshot(localStorage,d.coreStorage,isCoreKey);
-      writeStorageSnapshot(localStorage,d.mfixStorage,isMfixKey);
-      writeStorageSnapshot(sessionStorage,d.sessionStorage,isMfixKey);
-      await writeChromeStorageSnapshot(d.chromeStorage||{});
+      writeStorageSnapshot(localStorage,target.coreStorage,isCoreKey);
+      writeStorageSnapshot(localStorage,target.mfixStorage,isMfixKey);
+      writeStorageSnapshot(sessionStorage,target.sessionStorage,isMfixKey);
+      await writeChromeStorageSnapshot(target.chromeStorage);
+      await verifyRestoreSnapshot(target);
     }catch(err){
-      // Best-effort rollback prevents a failed restore from leaving a mixed dataset.
       try{
         writeStorageSnapshot(localStorage,before.coreStorage,isCoreKey);
         writeStorageSnapshot(localStorage,before.mfixStorage,isMfixKey);
         writeStorageSnapshot(sessionStorage,before.sessionStorage,isMfixKey);
         await writeChromeStorageSnapshot(before.chromeStorage||{});
+        await verifyRestoreSnapshot(before);
       }catch(_){ }
       throw new Error('שחזור נכשל והנתונים הקודמים שוחזרו ככל שניתן: '+(err?.message||err));
     }
 
-    toastSafe('שחזור הושלם ✓ — '+summary);
+    toastSafe('שחזור הושלם ואומת ✓ — '+summary);
     setTimeout(()=>location.reload(),700);
     return true;
   }
@@ -158,7 +182,7 @@
     return payload;
   }
 
-  window.MFIXBackupCore171={buildBackup,validateBackupPayload,saveBackup,restoreBackup,CORE_KEYS:CORE_KEYS.slice()};
+  window.MFIXBackupCore172={buildBackup,validateBackupPayload,saveBackup,restoreBackup,CORE_KEYS:CORE_KEYS.slice(),verifyRestoreSnapshot};
 
   function wire(){
     const settings=document.getElementById('mfix-pos-settings-800');
