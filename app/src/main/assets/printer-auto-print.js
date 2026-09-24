@@ -1,7 +1,7 @@
 (function(){
   'use strict';
-  if(window.__mfixAutoPrintHookLoadedV6) return;
-  window.__mfixAutoPrintHookLoadedV6=true;
+  if(window.__mfixAutoPrintHookLoadedV7) return;
+  window.__mfixAutoPrintHookLoadedV7=true;
 
   function activeSettings(){
     try{
@@ -60,7 +60,8 @@
     try{
       const copies=copyCount(s);
       for(let i=0;i<copies;i++){
-        await window.printDoc(sale.id);
+        const result=await window.printDoc(sale.id);
+        if(result===false) throw new Error('printDoc reported failure');
         if(i<copies-1) await new Promise(r=>setTimeout(r,80));
       }
       localStorage.setItem('mfix_last_auto_printed_sale_v2',id);
@@ -73,8 +74,8 @@
   }
 
   async function hook(){
-    if(typeof window.finalizeSale!=='function' || window.__mfixAutoPrintWrappedV6) return false;
-    window.__mfixAutoPrintWrappedV6=true;
+    if(typeof window.finalizeSale!=='function' || window.__mfixAutoPrintWrappedV7) return false;
+    window.__mfixAutoPrintWrappedV7=true;
     const original=window.finalizeSale;
     window.finalizeSale=async function(){
       const before=window.STATE&&Array.isArray(window.STATE.sales)?window.STATE.sales.length:-1;
