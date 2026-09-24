@@ -1,56 +1,67 @@
 (function(){
   'use strict';
-  if(window.__mfixAutoPrintHookLoadedV4) return;
-  window.__mfixAutoPrintHookLoadedV4=true;
-  function settings(){
-    try{return JSON.parse(localStorage.getItem('mfix_printer_settings_v1')||'{}');}catch(_){return {};}
-  }
-  function printers(){
-    try{return window.AndroidPrinter&&typeof AndroidPrinter.listUsbPrinters==='function'?JSON.parse(AndroidPrinter.listUsbPrinters()||'[]'):[];}catch(_){return [];} 
-  }
-  function selectedPrinter(s){
-    const id=String((s&&s.device)||localStorage.getItem('mfix_default_printer_v1')||'').trim();
-    if(!id)return null;
-    return printers().find(p=>String(p.id)===id||String(p.name)===id)||null;
-  }
-  function wait(ms){return new Promise(r=>setTimeout(r,ms));}
-  function copyCount(s){
-    const n=Number(s&&s.copies);
-    return Number.isFinite(n)?Math.max(1,Math.min(5,Math.floor(n))):1;
-  }
-  async function printLatestSale(before){
-    const s=settings();
-    if(s.autoPrint===false || s.printerAutoPrint===false) return;
-    const sales=window.STATE&&Array.isArray(window.STATE.sales)?window.STATE.sales:[];
-    if(sales.length<=before)return;
-    const sale=sales[sales.length-1];
-    if(!sale || !sale.id || typeof window.printDoc!=='function')return;
+  if(window.__mfixAutoPrintHookLoadedV5) return;
+  window.__mfixAutoPrintHookLoadedV5=true;
 
-    // Do not invoke the supported print path blindly. A configured default
-    // printer must still be physically discoverable and USB-authorized at the
-    // moment the sale is finalized.
+  function activeSettings(){
+    try{
+      return window.STATE && window.STATE.settings && typeof window.STATE.settings==='object'
+        ? window.STATE.settings : {};
+    }catch(_){ return {}; }
+  }
+
+  function selectedPrinter(s){
+    const id=String(s.defaultPrinterId||'').trim();
+    if(!id || !Array.isArray(s.printers)) return null;
+    return s.printers.find(p=>String(p&&p.id||'')===id) || null;
+  }
+
+  function copyCount(s){
+    const n=Number(s.printerCopies);
+    return Number.isFinite(n)?Math.max(1,Math.min(10,Math.floor(n))):1;
+  }
+
+  async function printLatestSale(before){
+    const s=activeSettings();
+    if(s.printerAutoPrint===false) return;
+
+    const sales=window.STATE&&Array.isArray(window.STATE.sales)?window.STATE.sales:[];
+    if(sales.length<=before) return;
+
+    const sale=sales[sales.length-1];
+    if(!sale || !sale.id || typeof window.printDoc!=='function') return;
+
+    // The actual supported Android/USB print path performs the physical
+    // printing. Here we only verify that MFIX has a configured default
+    // printer profile before invoking that path.
     const printer=selectedPrinter(s);
     if(!printer){
-      try{window.toast('המכירה נשמרה, אך לא נמצאה מדפסת ברירת מחדל מחוברת','err');}catch(_){}
+      try{window.toast('המכירה נשמרה, אך לא הוגדרה מדפסת ברירת מחדל','err');}catch(_){}
       return;
     }
-    if(printer.authorized===false){
-      try{window.toast('המכירה נשמרה, אך למדפסת אין הרשאת USB','err');}catch(_){}
+
+    if(String(printer.type||'USB')!=='USB'){
+      try{window.toast('המכירה נשמרה; הדפסה אוטומטית נתמכת כרגע רק למדפסת USB','err');}catch(_){}
+      return;
+    }
+
+    if(!String(printer.address||'').trim()){
+      try{window.toast('המכירה נשמרה, אך למדפסת ברירת המחדל אין מזהה USB','err');}catch(_){}
       return;
     }
 
     const id=String(sale.id);
-    if(String(localStorage.getItem('mfix_last_auto_printed_sale_v1')||'')===id)return;
-    if(window.__mfixAutoPrintInFlight)return;
+    if(String(localStorage.getItem('mfix_last_auto_printed_sale_v2')||'')===id) return;
+    if(window.__mfixAutoPrintInFlight) return;
+
     window.__mfixAutoPrintInFlight=true;
     try{
       const copies=copyCount(s);
-      await wait(60);
       for(let i=0;i<copies;i++){
         await window.printDoc(sale.id);
-        if(i<copies-1) await wait(80);
+        if(i<copies-1) await new Promise(r=>setTimeout(r,80));
       }
-      localStorage.setItem('mfix_last_auto_printed_sale_v1',id);
+      localStorage.setItem('mfix_last_auto_printed_sale_v2',id);
     }catch(e){
       console.error('[MFIX AUTO PRINT] supported USB receipt print failed',e);
       try{window.toast('המכירה נשמרה, אך ההדפסה האוטומטית נכשלה','err');}catch(_){}
@@ -58,9 +69,10 @@
       window.__mfixAutoPrintInFlight=false;
     }
   }
+
   async function hook(){
-    if(typeof window.finalizeSale!=='function' || window.__mfixAutoPrintWrappedV4) return false;
-    window.__mfixAutoPrintWrappedV4=true;
+    if(typeof window.finalizeSale!=='function' || window.__mfixAutoPrintWrappedV5) return false;
+    window.__mfixAutoPrintWrappedV5=true;
     const original=window.finalizeSale;
     window.finalizeSale=async function(){
       const before=window.STATE&&Array.isArray(window.STATE.sales)?window.STATE.sales.length:-1;
@@ -70,6 +82,7 @@
     };
     return true;
   }
+
   function start(){
     if(hook()) return;
     let tries=0;
@@ -78,5 +91,6 @@
       if(await hook() || tries>=40) clearInterval(timer);
     },250);
   }
+
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',start); else start();
 })();
