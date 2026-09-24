@@ -1,7 +1,7 @@
 (function(){
   'use strict';
-  if(window.__mfixAutoPrintHookLoadedV5) return;
-  window.__mfixAutoPrintHookLoadedV5=true;
+  if(window.__mfixAutoPrintHookLoadedV6) return;
+  window.__mfixAutoPrintHookLoadedV6=true;
 
   function activeSettings(){
     try{
@@ -18,7 +18,7 @@
 
   function copyCount(s){
     const n=Number(s.printerCopies);
-    return Number.isFinite(n)?Math.max(1,Math.min(10,Math.floor(n))):1;
+    return Number.isFinite(n)?Math.max(1,Math.min(5,Math.floor(n))):1;
   }
 
   async function printLatestSale(before){
@@ -31,9 +31,6 @@
     const sale=sales[sales.length-1];
     if(!sale || !sale.id || typeof window.printDoc!=='function') return;
 
-    // The actual supported Android/USB print path performs the physical
-    // printing. Here we only verify that MFIX has a configured default
-    // printer profile before invoking that path.
     const printer=selectedPrinter(s);
     if(!printer){
       try{window.toast('המכירה נשמרה, אך לא הוגדרה מדפסת ברירת מחדל','err');}catch(_){}
@@ -42,6 +39,11 @@
 
     if(String(printer.type||'USB')!=='USB'){
       try{window.toast('המכירה נשמרה; הדפסה אוטומטית נתמכת כרגע רק למדפסת USB','err');}catch(_){}
+      return;
+    }
+
+    if(String(printer.authorized)==='false'){
+      try{window.toast('המכירה נשמרה, אך למדפסת אין הרשאת USB','err');}catch(_){}
       return;
     }
 
@@ -71,8 +73,8 @@
   }
 
   async function hook(){
-    if(typeof window.finalizeSale!=='function' || window.__mfixAutoPrintWrappedV5) return false;
-    window.__mfixAutoPrintWrappedV5=true;
+    if(typeof window.finalizeSale!=='function' || window.__mfixAutoPrintWrappedV6) return false;
+    window.__mfixAutoPrintWrappedV6=true;
     const original=window.finalizeSale;
     window.finalizeSale=async function(){
       const before=window.STATE&&Array.isArray(window.STATE.sales)?window.STATE.sales.length:-1;
