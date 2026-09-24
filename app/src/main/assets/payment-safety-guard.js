@@ -39,6 +39,10 @@
     const now=Date.now(),key=kind+':'+amount.toFixed(2);
     if(key===lastKey&&now-lastAt<LOCK_MS){toast('התשלום כבר בתהליך — לחיצה כפולה נחסמה',1800);return false}
     const previous=read();
+    if(previous&&previous.status==='stale'){
+      toast('נמצא ניסיון תשלום קודם ללא אישור. יש לבדוק את המסוף/קופה ולנקות את הסטטוס לפני ניסיון חדש.',4200);
+      return false;
+    }
     if(previous&&previous.status==='started'&&previous.startedAt){
       const age=now-Date.parse(previous.startedAt);
       if(Number.isFinite(age)&&age<STALE_MS){
@@ -48,7 +52,6 @@
     }
     lastKey=key;lastAt=now;
     const attempt={version:'18.0.1',method:kind,amount,startedAt:new Date().toISOString(),status:'started'};
-    if(previous&&previous.status==='stale')attempt.recoveredFrom=previous.startedAt||null;
     try{sessionStorage.setItem(KEY,JSON.stringify(attempt))}catch(_){}
     return true;
   }
