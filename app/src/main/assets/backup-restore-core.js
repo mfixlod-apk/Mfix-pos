@@ -1,12 +1,12 @@
 (()=>{
   'use strict';
-  if(window.__MFIX_BACKUP_CORE_170__) return;
-  window.__MFIX_BACKUP_CORE_170__=true;
+  if(window.__MFIX_BACKUP_CORE_171__) return;
+  window.__MFIX_BACKUP_CORE_171__=true;
 
   const CORE_KEYS=['cp_settings','cp_products','cp_customers','cp_sales','cp_repairs','cp_misc'];
   const PREFIX=/^(mfix|MFIX)/;
   const FORMAT='MFIX-POS-BACKUP';
-  const VERSION='17.0.0';
+  const VERSION='17.1.0';
 
   const toastSafe=(msg)=>{try{if(typeof toast==='function')toast(msg,2200);else alert(msg)}catch(_){}};
   const isCoreKey=k=>CORE_KEYS.includes(String(k||''));
@@ -92,6 +92,19 @@
     }catch(_){}
   }
 
+  function writeStorageSnapshot(storage,snapshot,predicate){
+    clearKeys(storage,predicate);
+    for(const [k,v] of Object.entries(snapshot||{})) storage.setItem(k,String(v));
+  }
+
+  async function writeChromeStorageSnapshot(snapshot){
+    if(!chrome?.storage?.local)return;
+    const current=await chrome.storage.local.get(null);
+    const remove=Object.keys(current||{}).filter(isMfixKey);
+    if(remove.length)await chrome.storage.local.remove(remove);
+    if(snapshot && Object.keys(snapshot).length)await chrome.storage.local.set(snapshot);
+  }
+
   async function restoreBackup(file){
     const text=await file.text();
     let d;
@@ -102,13 +115,29 @@
     const summary=`מוצרים ${Number(c.products||0)} · לקוחות ${Number(c.customers||0)} · מכירות ${Number(c.sales||0)} · תיקונים ${Number(c.repairs||0)}`;
     if(!confirm('שחזור גיבוי MFIX POS\n\n'+summary+'\n\nהנתונים הנוכחיים יוחלפו. להמשיך?'))return false;
 
-    // Full restore of the app's actual persistent dataset.
-    clearKeys(localStorage,k=>isCoreKey(k)||isMfixKey(k));
-    clearKeys(sessionStorage,k=>isMfixKey(k));
-    for(const [k,v] of Object.entries(d.coreStorage||{})) if(isCoreKey(k))localStorage.setItem(k,String(v));
-    for(const [k,v] of Object.entries(d.mfixStorage||{})) if(isMfixKey(k))localStorage.setItem(k,String(v));
-    for(const [k,v] of Object.entries(d.sessionStorage||{})) if(isMfixKey(k))sessionStorage.setItem(k,String(v));
-    try{if(chrome?.storage?.local && d.chromeStorage)await chrome.storage.local.set(d.chromeStorage)}catch(_){}
+    // Capture the current dataset first so a failed write can be rolled back.
+    const before={
+      coreStorage:readStorage(localStorage,k=>isCoreKey(k)),
+      mfixStorage:readStorage(localStorage,isMfixKey),
+      sessionStorage:readStorage(sessionStorage,isMfixKey),
+      chromeStorage:await readChromeStorage()
+    };
+
+    try{
+      writeStorageSnapshot(localStorage,d.coreStorage,isCoreKey);
+      writeStorageSnapshot(localStorage,d.mfixStorage,isMfixKey);
+      writeStorageSnapshot(sessionStorage,d.sessionStorage,isMfixKey);
+      await writeChromeStorageSnapshot(d.chromeStorage||{});
+    }catch(err){
+      // Best-effort rollback prevents a failed restore from leaving a mixed dataset.
+      try{
+        writeStorageSnapshot(localStorage,before.coreStorage,isCoreKey);
+        writeStorageSnapshot(localStorage,before.mfixStorage,isMfixKey);
+        writeStorageSnapshot(sessionStorage,before.sessionStorage,isMfixKey);
+        await writeChromeStorageSnapshot(before.chromeStorage||{});
+      }catch(_){ }
+      throw new Error('שחזור נכשל והנתונים הקודמים שוחזרו ככל שניתן: '+(err?.message||err));
+    }
 
     toastSafe('שחזור הושלם ✓ — '+summary);
     setTimeout(()=>location.reload(),700);
@@ -129,7 +158,7 @@
     return payload;
   }
 
-  window.MFIXBackupCore170={buildBackup,validateBackupPayload,saveBackup,restoreBackup,CORE_KEYS:CORE_KEYS.slice()};
+  window.MFIXBackupCore171={buildBackup,validateBackupPayload,saveBackup,restoreBackup,CORE_KEYS:CORE_KEYS.slice()};
 
   function wire(){
     const settings=document.getElementById('mfix-pos-settings-800');
