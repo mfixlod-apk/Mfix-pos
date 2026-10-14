@@ -86,11 +86,10 @@ public class MainActivity extends Activity {
                 try {
                     Intent pick = new Intent(Intent.ACTION_OPEN_DOCUMENT);
                     pick.addCategory(Intent.CATEGORY_OPENABLE);
+                    // Some Android document providers mislabel XLSX files and hide them
+                    // when EXTRA_MIME_TYPES is set. Use the wildcard alone and validate
+                    // the selected file in the inventory importer.
                     pick.setType("*/*");
-                    pick.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{
-                        "text/csv","text/plain","application/vnd.ms-excel",
-                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                    });
                     pick.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, params.getMode() == FileChooserParams.MODE_OPEN_MULTIPLE);
                     startActivityForResult(pick, REQUEST_FILE_CHOOSER);
                     return true;
@@ -188,8 +187,9 @@ public class MainActivity extends Activity {
         @JavascriptInterface public void pickInventoryFile() {
             try {
                 Intent pick = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-                pick.addCategory(Intent.CATEGORY_OPENABLE); pick.setType("*/*");
-                pick.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{"text/csv","text/plain","application/vnd.ms-excel","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+                pick.addCategory(Intent.CATEGORY_OPENABLE);
+                // Do not filter by MIME: Android Files often reports .xlsx as octet-stream.
+                pick.setType("*/*");
                 startActivityForResult(pick, REQUEST_IMPORT_INVENTORY);
             } catch (Exception ex) { toast("לא ניתן לפתוח בחירת קובץ מלאי"); }
         }
