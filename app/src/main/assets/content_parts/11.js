@@ -52,6 +52,29 @@
      render(items);
    };
 
+   const searchMenu=root.querySelector('#mfix-pos-search-menu-1400');
+   const searchMenuToggle=root.querySelector('#mfix-pos-search-menu-toggle-1400');
+   const setSearchMenuOpen=open=>{
+     if(!searchMenu)return;
+     const show=!!open&&!search.value.trim();
+     searchMenu.style.display=show?'block':'none';
+     if(searchMenuToggle)searchMenuToggle.setAttribute('aria-expanded',show?'true':'false');
+   };
+   searchMenuToggle?.addEventListener('click',()=>{
+     setSearchMenuOpen(searchMenu?.style.display==='none'||!searchMenu?.style.display);
+     if(!search.value.trim())search.focus();
+   });
+   search.addEventListener('focus',()=>{if(!search.value.trim())setSearchMenuOpen(true)});
+   search.addEventListener('input',()=>{
+     if(search.value.trim())setSearchMenuOpen(false);
+     else setSearchMenuOpen(true);
+   });
+   ['#mfix-pos-favs-big-1220','#mfix-pos-cats-big-1220','#mfix-pos-best-big-1220','#mfix-pos-recents-1290','#mfix135-profit-btn','#mfix135-stock-btn','#mfix135-discount-btn'].forEach(sel=>{
+     root.querySelector(sel)?.addEventListener('click',()=>setSearchMenuOpen(false),{capture:true});
+   });
+   root.querySelector('#mfix-pos-search-menu-1400')?.addEventListener('click',e=>{
+     if(e.target.closest('button'))setSearchMenuOpen(false);
+   });
    search.addEventListener('input',()=>{clearTimeout(timer);timer=setTimeout(searchNow,260)});
    search.addEventListener('keydown',async e=>{
      if(e.key!=='Enter')return;
