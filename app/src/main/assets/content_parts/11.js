@@ -62,7 +62,6 @@
    };
    searchMenuToggle?.addEventListener('click',()=>{
      setSearchMenuOpen(searchMenu?.style.display==='none'||!searchMenu?.style.display);
-     if(!search.value.trim())search.focus();
    });
    search.addEventListener('focus',()=>{if(!search.value.trim())setSearchMenuOpen(true)});
    search.addEventListener('input',()=>{
