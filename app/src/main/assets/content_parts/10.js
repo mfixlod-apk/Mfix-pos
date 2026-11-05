@@ -297,24 +297,28 @@ async function mfixPosStartPayment840(kind){
    </div>
    <div style="flex:1;min-height:0;overflow:hidden;display:grid;grid-template-columns:minmax(0,1.35fr) minmax(360px,.75fr);gap:14px;padding:14px">
      <section style="background:white;border-radius:18px;padding:10px;min-width:0;min-height:0;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 3px 14px #0001">
-       <div style="display:grid;grid-template-columns:1fr 110px;gap:8px;flex:0 0 auto">
-         <input id="mfix-pos-search-800" placeholder="חפש מוצר / סרוק ברקוד" style="height:48px;border:2px solid #e5e7eb;border-radius:12px;padding:0 14px;font-size:20px;outline:none">
+       <div style="display:grid;grid-template-columns:minmax(0,1fr) 110px 48px;gap:8px;flex:0 0 auto">
+         <input id="mfix-pos-search-800" placeholder="חפש מוצר / סרוק ברקוד" style="height:48px;min-width:0;border:2px solid #e5e7eb;border-radius:12px;padding:0 14px;font-size:20px;outline:none">
          <button id="mfix-pos-general-800" style="height:48px;border:0;border-radius:12px;background:#14b8a6;color:white;font-size:15px;font-weight:900">מוצר כללי +</button>
+         <button id="mfix-pos-search-menu-toggle-1400" type="button" aria-expanded="false" style="height:48px;border:1px solid #dbe3ef;border-radius:12px;background:#f8fafc;color:#334155;font-size:21px;font-weight:900">☰</button>
        </div>
        <div style="height:25px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex:0 0 auto;padding:0 3px">
          <span id="mfix-pos-scan-state-1280" style="font-size:12px;font-weight:900;color:#86efac">● מוכן לסריקה</span>
          <span id="mfix-pos-last-1280" style="font-size:11px;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">אחרון: —</span>
        </div>
-       <div id="mfix-pos-search-history-1290" style="min-height:24px;display:flex;gap:5px;align-items:center;overflow:hidden"></div><div style="margin-top:7px;display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:7px;flex:0 0 auto">
-         <button id="mfix-pos-favs-big-1220" style="height:48px;border:0;border-radius:12px;background:#fff7ed;font-size:15px;font-weight:1000">⭐ מועדפים</button>
-         <button id="mfix-pos-cats-big-1220" style="height:48px;border:0;border-radius:12px;background:#eef2ff;font-size:15px;font-weight:1000">📂 קטגוריות</button>
-         <button id="mfix-pos-best-big-1220" style="height:48px;border:0;border-radius:12px;background:#fef2f2;font-size:15px;font-weight:1000">🔥 נמכרים ביותר</button>
-         <button id="mfix-pos-recents-1290" style="height:48px;border:0;border-radius:12px;background:#ecfeff;font-size:15px;font-weight:1000">🕘 אחרונים</button>
-       </div>
-       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-top:6px">
-         <button id="mfix135-profit-btn" style="height:38px;border:0;border-radius:10px;background:#ecfdf5;font-weight:900">💰 רווח</button>
-         <button id="mfix135-stock-btn" style="height:38px;border:0;border-radius:10px;background:#fff7ed;font-weight:900">⚠️ מלאי נמוך</button>
-         <button id="mfix135-discount-btn" style="height:38px;border:0;border-radius:10px;background:#f5f3ff;font-weight:900">🏷️ הנחה מהירה</button>
+       <div id="mfix-pos-search-menu-1400" style="display:none;flex:0 0 auto;margin:4px 0 7px;padding:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:13px;box-shadow:0 5px 16px #0f172a10">
+         <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px">
+           <button id="mfix-pos-favs-big-1220" style="min-height:40px;border:0;border-radius:10px;background:#fff7ed;font-size:13px;font-weight:1000">⭐ מועדפים</button>
+           <button id="mfix-pos-cats-big-1220" style="min-height:40px;border:0;border-radius:10px;background:#eef2ff;font-size:13px;font-weight:1000">📂 קטגוריות</button>
+           <button id="mfix-pos-best-big-1220" style="min-height:40px;border:0;border-radius:10px;background:#fef2f2;font-size:13px;font-weight:1000">🔥 נמכרים</button>
+           <button id="mfix-pos-recents-1290" style="min-height:40px;border:0;border-radius:10px;background:#ecfeff;font-size:13px;font-weight:1000">🕘 אחרונים</button>
+         </div>
+         <div id="mfix-pos-search-history-1290" style="min-height:22px;display:flex;gap:5px;align-items:center;overflow:hidden;margin-top:7px"></div>
+         <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin-top:7px">
+           <button id="mfix135-profit-btn" style="height:36px;border:0;border-radius:9px;background:#ecfdf5;font-size:12px;font-weight:900">💰 רווח</button>
+           <button id="mfix135-stock-btn" style="height:36px;border:0;border-radius:9px;background:#fff7ed;font-size:12px;font-weight:900">⚠️ מלאי נמוך</button>
+           <button id="mfix135-discount-btn" style="height:36px;border:0;border-radius:9px;background:#f5f3ff;font-size:12px;font-weight:900">🏷️ הנחה</button>
+         </div>
        </div>
        <div id="mfix-pos-favs-1000" style="display:none"></div>
        <div id="mfix-pos-cats-1000" style="display:none"></div>
